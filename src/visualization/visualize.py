@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder
-from scipy.stats import chi2_contingency
+from scipy.stats import chi2_contingency, f_oneway
 
 
 def get_verbose_value_counts(series):
@@ -139,6 +139,47 @@ def get_verbose_chi_square_statistics(dataframe, first_feature_list, second_feat
                     'feature_2': [second_feature],
                     'statistic': [chi2],
                     'p-value': [pval]
+                })
+            ], ignore_index=True)
+            
+    statistics = statistics.sort_values(
+        by='statistic',
+        ascending=False, 
+        ignore_index=True
+    )
+            
+    return statistics
+    
+    
+def get_verbose_anova_statistics(dataframe, categorical_feature_list, numerical_feature_list):
+    dataframe = pd.DataFrame(
+        data=OrdinalEncoder().fit_transform(dataframe),
+        index=dataframe.index,
+        columns=dataframe.columns
+    )
+    
+    categorical_feature_list = categorical_feature_list.copy()
+    numerical_feature_list = numerical_feature_list.copy()
+    
+    statistics = pd.DataFrame()
+    for categorical_feature in categorical_feature_list:
+    
+        if categorical_feature in numerical_feature_list:
+            numerical_feature_list.remove(categorical_feature)
+            
+        for numerical_feature in numerical_feature_list:
+            
+            df = dataframe[[categorical_feature, numerical_feature]]
+            df = df.groupby(categorical_feature)[numerical_feature].apply(list)
+            statistic, pvalue = f_oneway(*df)
+            
+            statistics = pd.concat([
+                statistics,
+                pd.DataFrame({
+                    'feature_1': [categorical_feature],
+                    'feature_2': [numerical_feature],
+                    'statistic': [statistic],
+                    'p-value': [pvalue]
                 })
             ], ignore_index=True)
             
