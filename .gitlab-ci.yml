@@ -30,3 +30,8 @@ before_script:
   - source venv/bin/activate
   - pip install -e .
   - pip install -r requirements.txt
+
+test:
+  stage: test
+  script:
+    - echo "There are currently no tests"
