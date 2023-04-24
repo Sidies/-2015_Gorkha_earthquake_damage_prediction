@@ -5,7 +5,23 @@ Code, documentation and reports created for phase 1 of the data science lab 2023
 
 Installation
 ------------
-1. Run the following commands on the terminal after pulling the projekt: "py -m pip install -e." and "py -m pip install -r .\requirements.txt"
+
+To run the following commands you need to have Python 3 and pip installed. After pulling the repository open the 
+terminal and run the following commands.
+
+### Linux
+
+```
+pip install -e .
+pip install -r requirements.txt
+```
+
+### Windows
+
+```
+py -m pip install -e .
+py -m pip install -r requirements.txt
+```
 
 Project Organization
 ------------
