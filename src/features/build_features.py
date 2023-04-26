@@ -61,18 +61,41 @@ def filter_values_by_threshold(df, threshold):
     Args:
         df: the dataframe
         threshold (integer): the threshold used to determine wether a feature value should be removed
+    return: Returns a list containing the values for each feature that should be dropped based on the treshold e.g. [feature, valueToDrop]
     """
     print("Starting filtering")
-    for feature in df:
-        data_type = df[feature].dtype
-        if data_type == 'object':
-            # The feature has categorical values
-            print('The feature has categorical values')
-        else:
-            # The feature has numerical values
-            print('The feature has numerical values')
-            
-    return df
+    
+    if threshold > 1.0 or threshold < 0:
+        print('Error: The threshold for filtering values in features has to be between 1 and 0.')
+        return 
+    
+    #debugging
+    df = df[['count_floors_pre_eq', 'geo_level_1_id']]
+    
+    # count the number of occurrences of each value for each feature
+    value_counts = {}
+    for feature in df.columns:
+        value_counts[feature] = df[feature].value_counts().sort_values(ascending=False)   
+    
+    # convert the values to the relative percentage
+    percentage_counts = {}
+    values_below_threshold = {}
+    for feature, counts in value_counts.items():
+        # get number of values for feature
+        number_of_feature_values = df[feature].count()
+        
+        # for each value in value_counts calculate the relative percentage
+        # and 
+        percentage_counts[feature] = {}
+        values_below_threshold[feature] = []
+        cumulativePercentage = 0
+        for val, countOfValues in counts.items():
+            percentage_counts[feature][val] = countOfValues / number_of_feature_values
+            cumulativePercentage += percentage_counts[feature][val]
+            if(cumulativePercentage > threshold):
+                values_below_threshold[feature].append(val)
+    
+    return values_below_threshold        
 
 class RemoveFeatureTransformer(BaseEstimator, TransformerMixin):
     """
