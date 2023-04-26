@@ -117,6 +117,7 @@ def run(extract_test_set=False):
 
     # remove rows
     X_train = X_train.drop(index=rows_to_remove)
+    y_train = y_train.drop(index=rows_to_remove)
 
     # ============================================= #
     # INITIALIZE SKLEARN PIPELINE TRANSFORMERS HERE #
