@@ -6,22 +6,60 @@ Code, documentation and reports created for phase 1 of the data science lab 2023
 Installation
 ------------
 
-To run the following commands you need to have Python 3 and pip installed. After pulling the repository open the 
-terminal and run the following commands.
+To run the following commands you need to have Python 3 and pip installed. 
+After pulling the repository, open the terminal and run the following commands.
 
-### Linux
+#### Linux
 
 ```
 pip install -e .
 pip install -r requirements.txt
 ```
 
-### Windows
+#### Windows
 
 ```
 py -m pip install -e .
 py -m pip install -r requirements.txt
 ```
+
+Running
+-------
+
+First, you need the data. 
+You can either download it from the ilias lab course or from the <a target="_blank" href="https://www.drivendata.org/competitions/57/nepal-earthquake/">original source</a> directly.
+Put the files in the `\data\raw` directory. 
+The following files should be present:
+
+- submission_format.csv
+- test_values.csv
+- train_labels.csv
+- train_values.csv
+
+Now, you are ready to run the prediction pipeline. 
+To do this, enter the following command.
+
+#### Linux
+
+```
+python3 pipeline.py
+```
+
+#### Windows
+
+```
+py pipeline.py
+```
+
+The resulting prediction file is `\models\tyrell_prediction.csv` and the trained model is stored as `\models\tyrell_prediction.joblib`.
+
+### Arguments
+
+`--extract_test_set` 
+Ignore original test set. 
+Instead, extract test set from train data and get corresponding test targets.
+Allows evaluation of prediction quality.
+Prediction and model are not stored.
 
 Project Organization
 ------------
