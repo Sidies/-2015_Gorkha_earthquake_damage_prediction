@@ -103,6 +103,8 @@ Project Organization
     │   │   │                 predictions
     │   │   ├── predict_model.py
     │   │   └── train_model.py
+    │   │
+    │   ├── tests          <- Unittests
     │   │
     │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
     │       └── visualize.py
