@@ -47,3 +47,22 @@ def revert_one_hot_encoding(df):
     :return: the decoded dataframe
     """ 
 	return df.idxmax(axis=1)
+
+def filter_values_by_threshold(df, threshold):
+    """   
+
+    Args:
+        df: the dataframe
+        threshold (integer): the threshold used to determine wether a feature value should be removed
+    """
+    print("Starting filtering")
+    for feature in df:
+        data_type = df[feature].dtype
+        if data_type == 'object':
+            # The feature has categorical values
+            print('The feature has categorical values')
+        else:
+            # The feature has numerical values
+            print('The feature has numerical values')
+            
+    return df
