@@ -122,7 +122,7 @@ def run(extract_test_set=False):
     print('running pipeline')
     
     # removes outliers
-    outlier_remover = DropRowsTransformer(rows_to_drop=build_features.find_outliers_by_threshold(X_test, args.ot, args.mi))
+    outlier_remover = DummyTransformer()
 
     # removes unnecessary columns
     feature_remover = RemoveFeatureTransformer(features_to_drop=columns_to_remove)

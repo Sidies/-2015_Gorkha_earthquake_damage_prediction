@@ -112,14 +112,24 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
 def find_outliers_IQR(df):
 
    q1=df.quantile(0.25)
-
    q3=df.quantile(0.75)
-
    IQR=q3-q1
-
    outliers = df[((df<(q1-1.5*IQR)) | (df>(q3+1.5*IQR)))]
 
    return outliers     
+
+def find_outlier_ZScore(df):
+    
+    threshold=3
+    mean_1 = np.mean(df)
+    std_1 =np.std(df)
+    
+    outliers = []
+    for y in df:
+        z_score= (y - mean_1)/std_1 
+        if np.abs(z_score) > threshold:
+            outliers.append(y)
+    return outliers
 
 
 class DropRowsTransformer(BaseEstimator, TransformerMixin):
