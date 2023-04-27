@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+
 from sklearn.base import BaseEstimator, TransformerMixin
 from category_encoders.ordinal import OrdinalEncoder
 
@@ -55,16 +57,16 @@ def revert_one_hot_encoding(df):
     """
     return df.idxmax(axis=1)
 
-def filter_values_by_threshold(df, threshold):
+def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
     """   
-    Creates a list containing   
+    Creates a list containing outliers for each feature of the dataframe.  
 
     Args:
         df: the dataframe
         threshold (integer): the threshold used to determine wether a feature value should be removed
     return: Returns a list containing the values for each feature that should be dropped based on the treshold
     """
-    print("Starting filtering")
+    print(f"Start: filtering out outliers with threshold {threshold}")
     
     if threshold > 1.0 or threshold < 0:
         print('Error: The threshold for filtering values in features has to be between 1 and 0.')
@@ -93,7 +95,48 @@ def filter_values_by_threshold(df, threshold):
             if(cumulativePercentage > threshold):
                 values_below_threshold[feature].append(val)
     
-    return values_below_threshold        
+    if displayInfo:
+        for feature, values in values_below_threshold.items():
+            print(f'feature name: {feature}')
+            maxDisplay = 10
+            for i in range(0, maxDisplay):
+                if i >= len(values):                    
+                    break
+                print(f'    {i}: {values[i]}')
+                if i == maxDisplay -1 and len(values) >= maxDisplay:
+                    print(f'.. {len(values) - maxDisplay} more outliers were found')
+    
+    return values_below_threshold   
+
+#create a function to find outliers using IQR
+def find_outliers_IQR(df):
+
+   q1=df.quantile(0.25)
+
+   q3=df.quantile(0.75)
+
+   IQR=q3-q1
+
+   outliers = df[((df<(q1-1.5*IQR)) | (df>(q3+1.5*IQR)))]
+
+   return outliers     
+
+
+class DropRowsTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, rows_to_drop):
+        self.rows_to_drop = rows_to_drop
+        
+    def fit(self, X, y=None):
+        return self
+        
+    def transform(self, X, y=None):
+        for column, row_names in self.rows_to_drop.items():            
+            indizesToDrop = []
+            for value in row_names:
+                indizesToDrop.append(X[column].index[X[column] == value][0])
+            X[column] = X[column].drop(labels=indizesToDrop)
+        X = X.dropna()
+        return X
 
 class RemoveFeatureTransformer(BaseEstimator, TransformerMixin):
     """
