@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import tqdm as tqdm
 
 from joblib import dump
 from sklearn.compose import ColumnTransformer
@@ -14,8 +15,8 @@ from category_encoders.binary import BinaryEncoder
 from category_encoders.one_hot import OneHotEncoder
 from category_encoders.ordinal import OrdinalEncoder
 
-from src.features.build_features import DummyTransformer, RemoveFeatureTransformer
-
+from src.features.build_features import DummyTransformer, RemoveFeatureTransformer, DropRowsTransformer
+from src.features import build_features
 
 def run(extract_test_set=False):
     print('loading data')
@@ -109,21 +110,19 @@ def run(extract_test_set=False):
     X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
     if extract_test_set:
         y_test = y_test.astype('category')
-
-    # find rows that can be dropped (outlier detection)
-    rows_to_remove = [] #TODO
+        
     # find columns that can be dropped (uninformative columns / highly correlated columns)
     columns_to_remove = [] #TODO
 
-    # remove rows
-    X_train = X_train.drop(index=rows_to_remove)
-    y_train = y_train.drop(index=rows_to_remove)
 
     # ============================================= #
     # INITIALIZE SKLEARN PIPELINE TRANSFORMERS HERE #
     # ============================================= #
 
     print('running pipeline')
+    
+    # removes outliers
+    outlier_remover = DummyTransformer()
 
     # removes unnecessary columns
     feature_remover = RemoveFeatureTransformer(features_to_drop=columns_to_remove)
@@ -162,6 +161,7 @@ def run(extract_test_set=False):
 
     # define the pipeline
     pipeline = Pipeline(steps=[
+        ('drop_rows', outlier_remover),
         ('feature_remover', feature_remover),
         ('imputer', imputer),
         ('feature_engineering', feature_engineering),
@@ -175,6 +175,7 @@ def run(extract_test_set=False):
         ('estimator', estimator)
     ])
 
+    
     # run the pipeline
     pipeline.fit(X_train, y_train)
     y_pred = pipeline.predict(X_test)
@@ -210,6 +211,15 @@ if __name__ == '__main__':
         action='store_true',
         help='pass if you want to extract a test set from the train data to enable scoring'
     )
+    parser.add_argument(
+        '--ot', 
+        type=float, 
+        default=0.98, 
+        help='Threshold value for the outlier detection')
+    parser.add_argument(
+        '--mi', 
+        action='store_true', 
+        help='If this flag is set to true, more information about the pipeline progress will be displayed')
     args = parser.parse_args()
 
     run(args.extract_test_set)
