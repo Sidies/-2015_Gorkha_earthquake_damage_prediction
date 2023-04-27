@@ -57,20 +57,18 @@ def revert_one_hot_encoding(df):
 
 def filter_values_by_threshold(df, threshold):
     """   
+    Creates a list containing   
 
     Args:
         df: the dataframe
         threshold (integer): the threshold used to determine wether a feature value should be removed
-    return: Returns a list containing the values for each feature that should be dropped based on the treshold e.g. [feature, valueToDrop]
+    return: Returns a list containing the values for each feature that should be dropped based on the treshold
     """
     print("Starting filtering")
     
     if threshold > 1.0 or threshold < 0:
         print('Error: The threshold for filtering values in features has to be between 1 and 0.')
         return 
-    
-    #debugging
-    df = df[['count_floors_pre_eq', 'geo_level_1_id']]
     
     # count the number of occurrences of each value for each feature
     value_counts = {}
