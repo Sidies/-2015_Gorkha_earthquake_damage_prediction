@@ -95,7 +95,22 @@ def filter_values_by_threshold(df, threshold):
             if(cumulativePercentage > threshold):
                 values_below_threshold[feature].append(val)
     
-    return values_below_threshold        
+    return values_below_threshold   
+
+
+# threshold between 0 and 1
+def check_dataframe_for_imbalanced_features(df, threshold=0.9):
+    imbalancedFeatures = []
+    for col in df.columns:
+        if df[col].dtype != object or df[col].dtype.name != 'category':
+            continue
+        numberOfrows = df[col].count()
+        countedValues = df[col].value_counts()
+        for val in countedValues:
+            if val > numberOfrows * threshold:
+                imbalancedFeatures.append(col)
+    return imbalancedFeatures        
+             
 
 class RemoveFeatureTransformer(BaseEstimator, TransformerMixin):
     """
