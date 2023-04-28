@@ -57,7 +57,7 @@ def revert_one_hot_encoding(df):
     """
     return df.idxmax(axis=1)
 
-def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
+def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
     """   
     Creates a list containing outliers for each feature of the dataframe.  
 
@@ -66,7 +66,9 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
         threshold (integer): the threshold used to determine wether a feature value should be removed
     return: Returns a list containing the values for each feature that should be dropped based on the treshold
     """
-    print(f"Start: filtering out outliers with threshold {threshold}")
+    threshold = 1 - threshold
+    if displayInfo:
+        print(f"Start: filtering out outliers with threshold {threshold}")
     
     if threshold > 1.0 or threshold < 0:
         print('Error: The threshold for filtering values in features has to be between 1 and 0.')
@@ -79,25 +81,36 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
     
     # convert the values to the relative percentage
     percentage_counts = {}
-    values_below_threshold = {}
+    outliers = {}
+    featuresWithNoOutliers = []
     for feature, counts in value_counts.items():
+        
         # get number of values for feature
         number_of_feature_values = df[feature].count()
         
         # for each value in value_counts calculate the relative percentage
-        # and 
         percentage_counts[feature] = {}
-        values_below_threshold[feature] = []
+        outliers[feature] = []
         cumulativePercentage = 0
+        
+        hasOutliers = False
         for val, countOfValues in counts.items():
-            percentage_counts[feature][val] = countOfValues / number_of_feature_values
-            cumulativePercentage += percentage_counts[feature][val]
+            percentage_counts[feature][val] = countOfValues / number_of_feature_values            
             if(cumulativePercentage > threshold):
-                values_below_threshold[feature].append(val)
+                outliers[feature].append(val)
+                hasOutliers = True
+            cumulativePercentage += percentage_counts[feature][val]
+        if not(hasOutliers):
+            featuresWithNoOutliers.append(feature)
     
     if displayInfo:
-        for feature, values in values_below_threshold.items():
-            print(f'feature name: {feature}')
+        print(f'Features that have no outliers are: {featuresWithNoOutliers}')
+        print('Features with outliers:')
+        for feature, values in outliers.items():
+            if feature in featuresWithNoOutliers:
+                continue
+            
+            print(f'Outliers for feature: {feature}')
             maxDisplay = 10
             for i in range(0, maxDisplay):
                 if i >= len(values):                    
@@ -106,7 +119,7 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
                 if i == maxDisplay -1 and len(values) >= maxDisplay:
                     print(f'.. {len(values) - maxDisplay} more outliers were found')
     
-    return values_below_threshold   
+    return outliers   
 
 #create a function to find outliers using IQR
 def find_outliers_IQR(df):
