@@ -111,6 +111,7 @@ def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
                 continue
             
             print(f'Outliers for feature: {feature}')
+            print(f'    A total of {len(values)} outliers have been found')
             maxDisplay = 10
             for i in range(0, maxDisplay):
                 if i >= len(values):                    
