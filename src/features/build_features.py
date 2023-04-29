@@ -111,18 +111,31 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
 
 
 # threshold between 0 and 1
-def check_dataframe_for_imbalanced_features(df, threshold=0.9):
+def check_dataframe_for_imbalanced_features(df, threshold):
     imbalancedFeatures = []
     for col in df.columns:
-        if df[col].dtype != object or df[col].dtype.name != 'category':
+        if df[col].dtype == 'category': 
+            numberOfrows = df[col].count()
+            countedValues = df[col].value_counts()
+            for val in countedValues:
+                if val > numberOfrows * threshold:
+                    imbalancedFeatures.append(col)
+        elif np.issubdtype(df[col].dtype, np.number):
+            nunique = df[col].nunique()
+            if nunique == 2:
+                counts = df[col].value_counts()
+                minority_class_count = counts.min()
+                majority_class_count = counts.max()
+                class_imbalance = 1.0 - (minority_class_count / float(majority_class_count))
+                if class_imbalance > threshold:
+                    imbalancedFeatures.append(col)
+            else:
+                q = df[col].quantile(threshold)
+                if df[col].max() > q:
+                    imbalancedFeatures.append(col)
+        else:
             continue
-        numberOfrows = df[col].count()
-        countedValues = df[col].value_counts()
-        for val in countedValues:
-            if val > numberOfrows * threshold:
-                imbalancedFeatures.append(col)
-    return imbalancedFeatures        
-             
+    return imbalancedFeatures   
 
 #create a function to find outliers using IQR
 def find_outliers_IQR(df):
