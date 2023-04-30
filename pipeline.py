@@ -113,7 +113,7 @@ def run(extract_test_set=False):
         
     # find columns that can be dropped (uninformative columns / highly correlated columns)
     columns_to_remove = ['plan_configuration','has_superstructure_stone_flag', 'has_superstructure_mud_mortar_brick','has_superstructure_rc_non_engineered',
-    'legal_ownership_status']
+    'legal_ownership_status', 'count_families']
     
 
 
