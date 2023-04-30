@@ -49,6 +49,7 @@ def run(extract_test_set=False):
 
     categorical_columns = [
         'building_id',
+        'count_floors_pre_eq',
         'geo_level_1_id',
         'geo_level_2_id',
         'geo_level_3_id',
@@ -85,7 +86,6 @@ def run(extract_test_set=False):
     ]
 
     numerical_columns = [
-        'count_floors_pre_eq',
         'age',
         'area_percentage',
         'height_percentage',
@@ -112,8 +112,14 @@ def run(extract_test_set=False):
         y_test = y_test.astype('category')
         
     # find columns that can be dropped (uninformative columns / highly correlated columns)
+<<<<<<< HEAD
     columns_to_remove = build_features.check_dataframe_for_imbalanced_features(X_train, 0.9)
     
+=======
+    row_to_remove = build_features
+    # 'FeatureName': [outlier1, outlier2, ...]
+    columns_to_remove = [] #TODO
+>>>>>>> origin/main
 
 
     # ============================================= #
@@ -162,7 +168,6 @@ def run(extract_test_set=False):
 
     # define the pipeline
     pipeline = Pipeline(steps=[
-        ('drop_rows', outlier_remover),
         ('feature_remover', feature_remover),
         ('imputer', imputer),
         ('feature_engineering', feature_engineering),

@@ -5,26 +5,38 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from category_encoders.ordinal import OrdinalEncoder
 
 
-def reverse_one_hot_encoding(encoding):
+def create_one_hot_encoding(df):
     """
-    Funktion, die das One-Hot-Encoding zurücksetzt und eine Liste von Kategorien zurückgibt.
+    Transforms a dataframe consisting of binary categorical feature into a
+    valid one-hot encoding by creating new features for rows that have
+    multiple occurrences of 1.
+
+    Example:
+        a b      a b a+b
+        1 0      1 0 0
+        0 1  ->  0 1 0
+        1 1      0 0 1
+
+    :param df: a dataframe of binary categorical features
+    :return: the encoded dataframe
     """
-    # ein leeres Set für die einzigartigen Kategorien erstellen
-    unique_categories = set()
+    # check whether df only contains 0 and 1
+    if not df.isin([0, 1]).all(None):
+        raise Exception('One or more features is not binary categorical.')
 
-    # die einzigartigen Kategorien aus der binären Matrix extrahieren
-    for binary in encoding:
-        unique_categories.add(tuple(binary))
+    df_encoded = df.copy()
 
-    # eine Liste der Kategorien erstellen, indem jedes Element der binären Matrix mit der entsprechenden Kategorie abgeglichen wird
-    categories = []
-    for binary in encoding:
-        for category in unique_categories:
-            if tuple(binary) == category:
-                categories.append(list(unique_categories).index(category))
+    # only iterate over rows with multiple occurrences of 1
+    for index, row in df[df.sum(axis=1) >= 2].iterrows():
+        new_feature = '+'.join(df.columns[row.isin([1])].tolist())
 
-    # die Liste der Kategorien zurückgeben
-    return categories
+        if new_feature not in df_encoded.columns:
+            df_encoded[new_feature] = 0
+
+        df_encoded.loc[index, df_encoded.columns] = 0
+        df_encoded.loc[index, new_feature] = 1
+
+    return df_encoded
 
 
 def is_one_hot_encoded(df):
@@ -57,7 +69,14 @@ def revert_one_hot_encoding(df):
     """
     return df.idxmax(axis=1)
 
-def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
+def find_value_indices(df, column_name, value):
+    """
+    Finds the index of a specific value in a Pandas DataFrame and returns a list of indices where the value appears.
+    """
+    indices = df.index[df[column_name] == value].tolist()
+    return indices
+
+def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
     """   
     Creates a list containing outliers for each feature of the dataframe.  
 
@@ -66,7 +85,9 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
         threshold (integer): the threshold used to determine wether a feature value should be removed
     return: Returns a list containing the values for each feature that should be dropped based on the treshold
     """
-    print(f"Start: filtering out outliers with threshold {threshold}")
+    threshold = 1 - threshold
+    if displayInfo:
+        print(f"Start: filtering out outliers with threshold {threshold}")
     
     if threshold > 1.0 or threshold < 0:
         print('Error: The threshold for filtering values in features has to be between 1 and 0.')
@@ -79,26 +100,38 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
     
     # convert the values to the relative percentage
     percentage_counts = {}
-    values_below_threshold = {}
+    outliers = {}
+    featuresWithNoOutliers = []
     for feature, counts in value_counts.items():
+        
         # get number of values for feature
         number_of_feature_values = df[feature].count()
         
         # for each value in value_counts calculate the relative percentage
-        # and 
         percentage_counts[feature] = {}
-        values_below_threshold[feature] = []
+        outliers[feature] = []
         cumulativePercentage = 0
+        
+        hasOutliers = False
         for val, countOfValues in counts.items():
-            percentage_counts[feature][val] = countOfValues / number_of_feature_values
-            cumulativePercentage += percentage_counts[feature][val]
+            percentage_counts[feature][val] = countOfValues / number_of_feature_values            
             if(cumulativePercentage > threshold):
-                values_below_threshold[feature].append(val)
+                outliers[feature].append(val)
+                hasOutliers = True
+            cumulativePercentage += percentage_counts[feature][val]
+        if not(hasOutliers):
+            featuresWithNoOutliers.append(feature)
     
     return values_below_threshold   
     if displayInfo:
-        for feature, values in values_below_threshold.items():
-            print(f'feature name: {feature}')
+        print(f'Features that have no outliers are: {featuresWithNoOutliers}')
+        print('Features with outliers:')
+        for feature, values in outliers.items():
+            if feature in featuresWithNoOutliers:
+                continue
+            
+            print(f'Outliers for feature: {feature}')
+            print(f'    A total of {len(values)} outliers have been found')
             maxDisplay = 10
             for i in range(0, maxDisplay):
                 if i >= len(values):                    
@@ -107,7 +140,7 @@ def find_outliers_by_threshold(df, threshold = 0.98, displayInfo = False):
                 if i == maxDisplay -1 and len(values) >= maxDisplay:
                     print(f'.. {len(values) - maxDisplay} more outliers were found')
     
-    return values_below_threshold   
+    return outliers   
 
 
 # threshold between 0 and 1
@@ -138,27 +171,56 @@ def check_dataframe_for_imbalanced_features(df, threshold):
     return imbalancedFeatures   
 
 #create a function to find outliers using IQR
-def find_outliers_IQR(df):
+def find_outliers_IQR(list):
 
-   q1=df.quantile(0.25)
-   q3=df.quantile(0.75)
+   q1=list.quantile(0.25)
+   q3=list.quantile(0.75)
    IQR=q3-q1
-   outliers = df[((df<(q1-1.5*IQR)) | (df>(q3+1.5*IQR)))]
+   outliers = list[((list<(q1-1.5*IQR)) | (list>(q3+1.5*IQR)))]
 
    return outliers     
 
-def find_outlier_ZScore(df):
-    
-    threshold=3
-    mean_1 = np.mean(df)
-    std_1 =np.std(df)
-    
-    outliers = []
-    for y in df:
-        z_score= (y - mean_1)/std_1 
-        if np.abs(z_score) > threshold:
-            outliers.append(y)
-    return outliers
+def find_outliers_IQR_asindizes(list):
+    q1 = list.quantile(0.25)
+    q3 = list.quantile(0.75)
+    IQR = q3 - q1
+    mask = ((list < (q1 - 1.5 * IQR)) | (list > (q3 + 1.5 * IQR)))
+    outlier_indices = mask[mask == True].index
+
+    return outlier_indices
+
+def find_outliers_Zscore(list, threshold=3):
+     # Calculate the mean and standard deviation of the array
+    mean = np.mean(list)
+    std_dev = np.std(list)
+
+    # Calculate the z-score for each element in the array
+    z_scores = (list - mean) / std_dev
+
+    # Create a boolean mask for elements that have a z-score greater than the threshold
+    mask = np.abs(z_scores) > threshold
+
+    # Create a Pandas series of values for the elements that have a z-score greater than the threshold
+    outlier_values = pd.Series(list[mask])
+
+    return outlier_values
+
+def find_zscore_outliers_asindizes(list, threshold=3):
+
+    # Calculate the mean and standard deviation of the array
+    mean = np.mean(list)
+    std_dev = np.std(list)
+
+    # Calculate the z-score for each element in the array
+    z_scores = (list - mean) / std_dev
+
+    # Create a boolean mask for elements that have a z-score greater than the threshold
+    mask = np.abs(z_scores) > threshold
+
+    # Create a Pandas series of indices with the boolean mask as the index values
+    outlier_indices = pd.Series(range(len(list)))[mask]
+
+    return outlier_indices
 
 
 class DropRowsTransformer(BaseEstimator, TransformerMixin):
