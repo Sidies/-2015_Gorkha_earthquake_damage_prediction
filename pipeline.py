@@ -112,9 +112,9 @@ def run(extract_test_set=False):
         y_test = y_test.astype('category')
         
     # find columns that can be dropped (uninformative columns / highly correlated columns)
-    row_to_remove = build_features
-    # 'FeatureName': [outlier1, outlier2, ...]
-    columns_to_remove = [] #TODO
+    columns_to_remove = ['plan_configuration','has_superstructure_stone_flag', 'has_superstructure_mud_mortar_brick','has_superstructure_rc_non_engineered',
+    'legal_ownership_status', 'count_families']
+    
 
 
     # ============================================= #
