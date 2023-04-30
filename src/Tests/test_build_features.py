@@ -18,14 +18,32 @@ from src.features.build_features import DropRowsTransformer
 
 class TestBuildFeatures(unittest.TestCase):
 
+    def test_create_one_hot_encoding(self):
+        df = pd.DataFrame({
+            'a': [1, 0, 1],
+            'b': [0, 1, 1]
+        })
+
+        new_df = build_features.create_one_hot_encoding(df)
+
+        # create a test dataframe with the expected values
+        test_df = pd.DataFrame({
+            'a': [1, 0, 0],
+            'b': [0, 1, 0],
+            'a+b': [0, 0, 1]
+        })
+
+        # check if the new dataframe matches the test dataframe
+        assert new_df.equals(test_df),  f"Expected: \n {test_df} \n but got: \n {new_df}"
+
     def test_filter_values_by_threshold(self):
         train_df = pd.read_csv('data/raw/train_values.csv')
         build_features.find_outliers_by_threshold(train_df, 0.02, args.mi)
-        
+
         #self.assertListEqual(filter_values['count_floors_pre_eq'], [4,5,6,7,8,9])
         #self.assertTrue(all(value > 50 for value in filter_values['age']))
         #self.assertNotIn('r', filter_values['foundation_type'])
-        
+
         test1 = build_features.find_outliers_by_threshold(train_df, 0.7)
         self.assertIn('1', str(test1['has_superstructure_mud_mortar_brick'])), f"expected value 1 in {test1['has_superstructure_mud_mortar_brick']}"
 

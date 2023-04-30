@@ -5,26 +5,38 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from category_encoders.ordinal import OrdinalEncoder
 
 
-def reverse_one_hot_encoding(encoding):
+def create_one_hot_encoding(df):
     """
-    Funktion, die das One-Hot-Encoding zurücksetzt und eine Liste von Kategorien zurückgibt.
+    Transforms a dataframe consisting of binary categorical feature into a
+    valid one-hot encoding by creating new features for rows that have
+    multiple occurrences of 1.
+
+    Example:
+        a b      a b a+b
+        1 0      1 0 0
+        0 1  ->  0 1 0
+        1 1      0 0 1
+
+    :param df: a dataframe of binary categorical features
+    :return: the encoded dataframe
     """
-    # ein leeres Set für die einzigartigen Kategorien erstellen
-    unique_categories = set()
+    # check whether df only contains 0 and 1
+    if not df.isin([0, 1]).all(None):
+        raise Exception('One or more features is not binary categorical.')
 
-    # die einzigartigen Kategorien aus der binären Matrix extrahieren
-    for binary in encoding:
-        unique_categories.add(tuple(binary))
+    df_encoded = df.copy()
 
-    # eine Liste der Kategorien erstellen, indem jedes Element der binären Matrix mit der entsprechenden Kategorie abgeglichen wird
-    categories = []
-    for binary in encoding:
-        for category in unique_categories:
-            if tuple(binary) == category:
-                categories.append(list(unique_categories).index(category))
+    # only iterate over rows with multiple occurrences of 1
+    for index, row in df[df.sum(axis=1) >= 2].iterrows():
+        new_feature = '+'.join(df.columns[row.isin([1])].tolist())
 
-    # die Liste der Kategorien zurückgeben
-    return categories
+        if new_feature not in df_encoded.columns:
+            df_encoded[new_feature] = 0
+
+        df_encoded.loc[index, df_encoded.columns] = 0
+        df_encoded.loc[index, new_feature] = 1
+
+    return df_encoded
 
 
 def is_one_hot_encoded(df):
