@@ -49,7 +49,6 @@ def run(extract_test_set=False):
 
     categorical_columns = [
         'building_id',
-        'count_floors_pre_eq',
         'geo_level_1_id',
         'geo_level_2_id',
         'geo_level_3_id',
@@ -86,6 +85,7 @@ def run(extract_test_set=False):
     ]
 
     numerical_columns = [
+        'count_floors_pre_eq',
         'age',
         'area_percentage',
         'height_percentage',
@@ -110,21 +110,36 @@ def run(extract_test_set=False):
     X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
     if extract_test_set:
         y_test = y_test.astype('category')
-        
-    # find columns that can be dropped (uninformative columns / highly correlated columns)
-    columns_to_remove = ['plan_configuration','has_superstructure_stone_flag', 'has_superstructure_mud_mortar_brick','has_superstructure_rc_non_engineered',
-    'legal_ownership_status', 'count_families']
-    
 
+    # rows we found to contain outliers which can therefore be dropped
+    rows_to_remove = [] #TODO
+
+    # remove rows
+    X_train = X_train.drop(index=rows_to_remove)
+    y_train = y_train.drop(index=rows_to_remove)
+        
+    # columns we found to be uninformative which can therefore be dropped
+    columns_to_remove = [
+        'plan_configuration',
+        'has_superstructure_stone_flag',
+        'has_superstructure_mud_mortar_brick',
+        'has_superstructure_rc_non_engineered',
+        'legal_ownership_status',
+        'count_families'
+    ]
+
+    # update categorical and numerical column lists
+    for column in columns_to_remove:
+        if column in categorical_columns:
+            categorical_columns.remove(column)
+        if column in numerical_columns:
+            numerical_columns.remove(column)
 
     # ============================================= #
     # INITIALIZE SKLEARN PIPELINE TRANSFORMERS HERE #
     # ============================================= #
 
     print('running pipeline')
-    
-    # removes outliers
-    outlier_remover = DummyTransformer()
 
     # removes unnecessary columns
     feature_remover = RemoveFeatureTransformer(features_to_drop=columns_to_remove)
