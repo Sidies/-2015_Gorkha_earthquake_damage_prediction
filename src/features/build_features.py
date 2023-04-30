@@ -69,6 +69,13 @@ def revert_one_hot_encoding(df):
     """
     return df.idxmax(axis=1)
 
+def find_value_indices(df, column_name, value):
+    """
+    Finds the index of a specific value in a Pandas DataFrame and returns a list of indices where the value appears.
+    """
+    indices = df.index[df[column_name] == value].tolist()
+    return indices
+
 def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
     """   
     Creates a list containing outliers for each feature of the dataframe.  
@@ -135,27 +142,56 @@ def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
     return outliers   
 
 #create a function to find outliers using IQR
-def find_outliers_IQR(df):
+def find_outliers_IQR(list):
 
-   q1=df.quantile(0.25)
-   q3=df.quantile(0.75)
+   q1=list.quantile(0.25)
+   q3=list.quantile(0.75)
    IQR=q3-q1
-   outliers = df[((df<(q1-1.5*IQR)) | (df>(q3+1.5*IQR)))]
+   outliers = list[((list<(q1-1.5*IQR)) | (list>(q3+1.5*IQR)))]
 
    return outliers     
 
-def find_outlier_ZScore(df):
-    
-    threshold=3
-    mean_1 = np.mean(df)
-    std_1 =np.std(df)
-    
-    outliers = []
-    for y in df:
-        z_score= (y - mean_1)/std_1 
-        if np.abs(z_score) > threshold:
-            outliers.append(y)
-    return outliers
+def find_outliers_IQR_asindizes(list):
+    q1 = list.quantile(0.25)
+    q3 = list.quantile(0.75)
+    IQR = q3 - q1
+    mask = ((list < (q1 - 1.5 * IQR)) | (list > (q3 + 1.5 * IQR)))
+    outlier_indices = mask[mask == True].index
+
+    return outlier_indices
+
+def find_outliers_Zscore(list, threshold=3):
+     # Calculate the mean and standard deviation of the array
+    mean = np.mean(list)
+    std_dev = np.std(list)
+
+    # Calculate the z-score for each element in the array
+    z_scores = (list - mean) / std_dev
+
+    # Create a boolean mask for elements that have a z-score greater than the threshold
+    mask = np.abs(z_scores) > threshold
+
+    # Create a Pandas series of values for the elements that have a z-score greater than the threshold
+    outlier_values = pd.Series(list[mask])
+
+    return outlier_values
+
+def find_zscore_outliers_asindizes(list, threshold=3):
+
+    # Calculate the mean and standard deviation of the array
+    mean = np.mean(list)
+    std_dev = np.std(list)
+
+    # Calculate the z-score for each element in the array
+    z_scores = (list - mean) / std_dev
+
+    # Create a boolean mask for elements that have a z-score greater than the threshold
+    mask = np.abs(z_scores) > threshold
+
+    # Create a Pandas series of indices with the boolean mask as the index values
+    outlier_indices = pd.Series(range(len(list)))[mask]
+
+    return outlier_indices
 
 
 class DropRowsTransformer(BaseEstimator, TransformerMixin):
