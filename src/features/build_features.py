@@ -122,7 +122,7 @@ def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
         if not(hasOutliers):
             featuresWithNoOutliers.append(feature)
     
-    return values_below_threshold   
+    
     if displayInfo:
         print(f'Features that have no outliers are: {featuresWithNoOutliers}')
         print('Features with outliers:')
@@ -153,21 +153,6 @@ def check_dataframe_for_imbalanced_features(df, threshold):
             for val in countedValues:
                 if val > numberOfrows * threshold:
                     imbalancedFeatures.append(col)
-        elif np.issubdtype(df[col].dtype, np.number):
-            nunique = df[col].nunique()
-            if nunique == 2:
-                counts = df[col].value_counts()
-                minority_class_count = counts.min()
-                majority_class_count = counts.max()
-                class_imbalance = 1.0 - (minority_class_count / float(majority_class_count))
-                if class_imbalance > threshold:
-                    imbalancedFeatures.append(col)
-            else:
-                q = df[col].quantile(threshold)
-                if df[col].max() > q:
-                    imbalancedFeatures.append(col)
-        else:
-            continue
     return imbalancedFeatures   
 
 #create a function to find outliers using IQR
