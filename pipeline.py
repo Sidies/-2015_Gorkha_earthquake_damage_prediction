@@ -22,6 +22,7 @@ def run(extract_test_set=False, calledFromNotebook=False):
     goBackOneFolder = ''
     if calledFromNotebook:
         goBackOneFolder = '../'
+        
     print('loading data')
 
     X_train = pd.read_csv(goBackOneFolder + 'data/raw/train_values.csv')
@@ -94,6 +95,34 @@ def run(extract_test_set=False, calledFromNotebook=False):
         'height_percentage',
         'count_families'
     ]
+    
+    has_secondary_use_columns = [
+        'has_secondary_use',
+        'has_secondary_use_agriculture', 
+        'has_secondary_use_hotel',
+        'has_secondary_use_rental', 
+        'has_secondary_use_institution',
+        'has_secondary_use_school', 
+        'has_secondary_use_industry',
+        'has_secondary_use_health_post', 
+        'has_secondary_use_gov_office',
+        'has_secondary_use_use_police', 
+        'has_secondary_use_other'
+    ]
+    
+    has_superstructure_columns = [
+        'has_superstructure_adobe_mud',
+        'has_superstructure_mud_mortar_stone', 
+        'has_superstructure_stone_flag',
+        'has_superstructure_cement_mortar_stone',
+        'has_superstructure_mud_mortar_brick',
+        'has_superstructure_cement_mortar_brick', 
+        'has_superstructure_timber',
+        'has_superstructure_bamboo', 
+        'has_superstructure_rc_non_engineered',
+        'has_superstructure_rc_engineered', 
+        'has_superstructure_other'
+    ]
 
     # apply an initial ordinal encoding on the categorical features
     initial_ordinal_encoder = OrdinalEncoder(cols=categorical_columns)
@@ -114,8 +143,15 @@ def run(extract_test_set=False, calledFromNotebook=False):
     if extract_test_set:
         y_test = y_test.astype('category')
 
+
+
+    # remove the has_secondary_use and has_superstructure columns to not run analysis on them
+    new_categorical_columns = list(set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
+    
     # rows we found to contain outliers which can therefore be dropped
-    rows_to_remove = [] #TODO
+    X_train = build_features.remove_outliers_from_dataframes(X_train, numerical_columns, new_categorical_columns, 0.2, False)
+    
+    
 
     # remove rows
     X_train = X_train.drop(index=rows_to_remove)
@@ -127,6 +163,9 @@ def run(extract_test_set=False, calledFromNotebook=False):
         'has_superstructure_stone_flag',
         'has_superstructure_mud_mortar_brick',
         'has_superstructure_rc_non_engineered',
+        'has_superstructure_cement_mortar_stone',
+        'has_superstructure_rc_engineered', 
+        'has_superstructure_other'
         'legal_ownership_status',
         'count_families'
     ]

@@ -207,22 +207,130 @@ def find_zscore_outliers_asindizes(list, threshold=3):
 
     return outlier_indices
 
+def remove_outliers_from_dataframes(dfs, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
+    
+    ######################
+    # Remove numerical outliers
+    ######################
+    iqr_indizes = {}
+    z_indizes = {}
+    previousSize = len(dfs)
+    #print(f'Previous dataframe size {len(df)}')
+    for feature in dfs[numerical_columns]:
+        z_indizes[feature] = find_zscore_outliers_asindizes(dfs[feature], 2)
+        iqr_indizes[feature] = find_outliers_IQR_asindizes(dfs[feature])
+        
+        # convert the lists to sets for easy intersection
+        zscore_outliers_set = set(z_indizes[feature])
+        iqr_outliers_set = set(iqr_indizes[feature])
 
-class DropRowsTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self, rows_to_drop):
-        self.rows_to_drop = rows_to_drop
+        # find the common outliers
+        common_outliers = zscore_outliers_set.intersection(iqr_outliers_set)
+        amountToDrop = len(common_outliers)
+        expectedAmount = len(dfs[feature]) - amountToDrop
+        #print(f'{amountToDrop} should be dropped')
+
+        # assuming your data is in a pandas DataFrame named 'df'
+        # remove the common outliers from the DataFrame
+        dfs = dfs.drop(common_outliers)
+        dfs = dfs.reset_index(drop=True)
+        #print(f'Expected amount: {expectedAmount} and current amount: {len(df[feature])}')
+    #newSize = len(df)
+    #print(f'New dataframe size {len(df)}')
+    #print(f'A total of {previousSize - newSize} rows have been dropped')
+    
+    ######################
+    # Remove categorical outliers
+    ######################
+    
+    cat_outliers = find_outliers_by_threshold(dfs[categorical_columns], threshold, True)
+    previousSize = len(dfs)
+    indizesToRemove = {}
+    #print(f'Previous dataframe size {len(df)}')
+    for feature in dfs[categorical_columns]:
         
-    def fit(self, X, y=None):
-        return self
+        # calculate the index that should be dropped
+        indizesToRemove[feature] = [] # Initialize an empty list for each feature
+        for value in cat_outliers[feature]:        
+            indizesToRemove[feature].extend(find_value_indices(dfs[categorical_columns],feature, value))
         
-    def transform(self, X, y=None):
-        for column, row_names in self.rows_to_drop.items():            
-            indizesToDrop = []
-            for value in row_names:
-                indizesToDrop.append(X[column].index[X[column] == value][0])
-            X[column] = X[column].drop(labels=indizesToDrop)
-        X = X.dropna()
-        return X
+        amountToDrop = len(indizesToRemove[feature])
+        expectedAmount = len(dfs[feature]) - amountToDrop
+        #print(f'{amountToDrop} should be dropped')
+
+        # assuming your data is in a pandas DataFrame named 'df'
+        # remove the common outliers from the DataFrame
+        dfs = dfs.drop(indizesToRemove[feature])
+        dfs = dfs.reset_index(drop=True)
+        #print(f'Expected amount: {expectedAmount} and current amount: {len(df[feature])}')
+    newSize = len(dfs)
+    #print(f'New dataframe size {len(df)}')
+    #print(f'A total of {previousSize - newSize} rows have been dropped')
+    
+    return dfs
+
+def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
+    
+    all_outlier_row_indizes = {}
+    ######################
+    # Remove numerical outliers
+    ######################
+    iqr_indizes = {}
+    z_indizes = {}
+    previousSize = len(df)
+    #print(f'Previous dataframe size {len(df)}')
+    for feature in df[numerical_columns]:
+        z_indizes[feature] = find_zscore_outliers_asindizes(df[feature], 2)
+        iqr_indizes[feature] = find_outliers_IQR_asindizes(df[feature])
+        
+        # convert the lists to sets for easy intersection
+        zscore_outliers_set = set(z_indizes[feature])
+        iqr_outliers_set = set(iqr_indizes[feature])
+
+        # find the common outliers
+        common_outliers = zscore_outliers_set.intersection(iqr_outliers_set)
+        amountToDrop = len(common_outliers)
+        expectedAmount = len(df[feature]) - amountToDrop
+        #print(f'{amountToDrop} should be dropped')
+
+        # assuming your data is in a pandas DataFrame named 'df'
+        # remove the common outliers from the DataFrame
+        df = df.drop(common_outliers)
+        df = df.reset_index(drop=True)
+        #print(f'Expected amount: {expectedAmount} and current amount: {len(df[feature])}')
+    #newSize = len(df)
+    #print(f'New dataframe size {len(df)}')
+    #print(f'A total of {previousSize - newSize} rows have been dropped')
+    
+    ######################
+    # Remove categorical outliers
+    ######################
+    
+    cat_outliers = find_outliers_by_threshold(df[categorical_columns], threshold, True)
+    previousSize = len(df)
+    indizesToRemove = {}
+    #print(f'Previous dataframe size {len(df)}')
+    for feature in df[categorical_columns]:
+        
+        # calculate the index that should be dropped
+        indizesToRemove[feature] = [] # Initialize an empty list for each feature
+        for value in cat_outliers[feature]:        
+            indizesToRemove[feature].extend(find_value_indices(df[categorical_columns],feature, value))
+        
+        amountToDrop = len(indizesToRemove[feature])
+        expectedAmount = len(df[feature]) - amountToDrop
+        #print(f'{amountToDrop} should be dropped')
+
+        # assuming your data is in a pandas DataFrame named 'df'
+        # remove the common outliers from the DataFrame
+        df = df.drop(indizesToRemove[feature])
+        df = df.reset_index(drop=True)
+        #print(f'Expected amount: {expectedAmount} and current amount: {len(df[feature])}')
+    newSize = len(df)
+    #print(f'New dataframe size {len(df)}')
+    #print(f'A total of {previousSize - newSize} rows have been dropped')
+    
+    return df
 
 class RemoveFeatureTransformer(BaseEstimator, TransformerMixin):
     """
