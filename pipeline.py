@@ -18,11 +18,14 @@ from category_encoders.ordinal import OrdinalEncoder
 from src.features.build_features import DummyTransformer, RemoveFeatureTransformer, DropRowsTransformer
 from src.features import build_features
 
-def run(extract_test_set=False):
+def run(extract_test_set=False, calledFromNotebook=False):
+    goBackOneFolder = ''
+    if calledFromNotebook:
+        goBackOneFolder = '../'
     print('loading data')
 
-    X_train = pd.read_csv('data/raw/train_values.csv')
-    y_train = pd.read_csv('data/raw/train_labels.csv')
+    X_train = pd.read_csv(goBackOneFolder + 'data/raw/train_values.csv')
+    y_train = pd.read_csv(goBackOneFolder + 'data/raw/train_labels.csv')
     if extract_test_set:
         X_train, X_test, y_train, y_test = train_test_split(
             X_train,
@@ -31,7 +34,7 @@ def run(extract_test_set=False):
             stratify=y_train['damage_grade']
         )
     else:
-        X_test = pd.read_csv('data/raw/test_values.csv')
+        X_test = pd.read_csv(goBackOneFolder + 'data/raw/test_values.csv')
 
     # store building_id of test set as it is required in the submission format of the prediction
     X_test_building_id = X_test['building_id']
@@ -214,8 +217,8 @@ def run(extract_test_set=False):
         })
 
         # store trained model and prediction
-        dump(pipeline, 'models/tyrell_prediction.joblib')
-        y_pred.to_csv('models/tyrell_prediction.csv', index=False)
+        dump(pipeline, goBackOneFolder + 'models/tyrell_prediction.joblib')
+        y_pred.to_csv(goBackOneFolder + 'models/tyrell_prediction.csv', index=False)
 
 
 if __name__ == '__main__':
