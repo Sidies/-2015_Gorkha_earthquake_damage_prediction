@@ -83,11 +83,13 @@ class CustomPipeline:
     def __init__(
             self,
             raw_data_directory_path,
+            store_prediction_directory_path,
             steps,
             apply_ordinal_encoding=True,
             display_feature_importances=False
     ):
         self.raw_data_directory_path = raw_data_directory_path
+        self.store_prediction_directory_path = store_prediction_directory_path
         self.steps = steps
         self.apply_ordinal_encoding = apply_ordinal_encoding
         self.display_feature_importances = display_feature_importances
@@ -127,8 +129,8 @@ class CustomPipeline:
         })
 
         # store trained model and prediction
-        dump(pipeline, 'models/tyrell_prediction.joblib')
-        y_pred.to_csv('models/tyrell_prediction.csv', index=False)
+        dump(pipeline, os.path.join(self.store_prediction_directory_path, 'tyrell_prediction.joblib'))
+        y_pred.to_csv(os.path.join(self.store_prediction_directory_path, 'tyrell_prediction.csv'), index=False)
 
     def evaluate(self, pipeline, X_train, y_train):
         if self.display_feature_importances:

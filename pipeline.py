@@ -8,6 +8,7 @@ warnings.filterwarnings("ignore")
 def run(display_feature_importance=False):
     pipeline = CustomPipeline(
         raw_data_directory_path='data/raw/',
+        store_prediction_directory_path='models/',
         steps=get_best_steps(),
         apply_ordinal_encoding=False,
         display_feature_importances=display_feature_importance
