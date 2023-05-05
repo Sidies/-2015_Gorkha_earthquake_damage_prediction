@@ -55,11 +55,8 @@ The resulting prediction file is `\models\tyrell_prediction.csv` and the trained
 
 ### Arguments
 
-`--extract_test_set` 
-Ignore original test set. 
-Instead, extract test set from train data and get corresponding test targets.
-Allows evaluation of prediction quality.
-Prediction and model are not stored.
+`--feature_importance` 
+Display additional information about feature importance.
 
 Project Organization
 ------------
@@ -103,8 +100,10 @@ Project Organization
     │   │   │                 predictions
     │   │   ├── predict_model.py
     │   │   └── train_model.py
+    │   │
+    │   ├── pipelines      <- Scripts to build automated prediction pipelines
     │   │
-    │   ├── tests          <- Unittests
+    │   ├── tests          <- Scripts to validate the code with unit tests
     │   │
     │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
     │       └── visualize.py
