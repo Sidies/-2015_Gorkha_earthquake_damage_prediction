@@ -4,6 +4,7 @@ import tqdm as tqdm
 
 
 from joblib import dump
+from pathlib import Path
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.model_selection import StratifiedKFold
 from sklearn.dummy import DummyClassifier
@@ -98,7 +99,7 @@ class CustomPipeline:
 
     def run(self):
         print('loading data')
-
+        print(config.ROOT_DIR)
         X_train = pd.read_csv(os.path.join(self.raw_data_directory_path, 'train_values.csv'))
         y_train = pd.read_csv(os.path.join(self.raw_data_directory_path, 'train_labels.csv'))
         X_test = pd.read_csv(os.path.join(self.raw_data_directory_path, 'test_values.csv'))
@@ -165,7 +166,7 @@ class CustomPipeline:
         for score in scores:
             print('    ' + score + ':', scores[score].mean())
 
-    def clean(self, X_train, y_train, X_test):
+    def clean(self, X_train, y_train, X_test, recalculateOutliers = False):
         # store building_id of test set as it is required in the submission format of the prediction
         X_test_building_id = X_test['building_id']
 
@@ -207,8 +208,8 @@ class CustomPipeline:
         new_categorical_columns = list(set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
         
         row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns, new_categorical_columns, 0.2)
-        X_train = X_train.drop(index=row_indizes_to_remove)
-        y_train = y_train.drop(index=row_indizes_to_remove)
+        X_train = build_features.remove_rows_by_integer_index(X_train, row_indizes_to_remove)
+        y_train = build_features.remove_rows_by_integer_index(y_train, row_indizes_to_remove)
 
         # columns we found to be uninformative which can therefore be dropped
         columns_to_remove = [

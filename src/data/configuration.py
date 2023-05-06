@@ -1,3 +1,8 @@
+import os
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).parent.parent.parent
+
 categorical_columns = [
     'building_id',
     'geo_level_1_id',
