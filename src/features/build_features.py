@@ -260,7 +260,6 @@ def remove_outliers_from_dataframes(dfs, numerical_columns, categorical_columns,
         expectedAmount = len(dfs[feature]) - amountToDrop
         #print(f'{amountToDrop} should be dropped')
 
-        # assuming your data is in a pandas DataFrame named 'df'
         # remove the common outliers from the DataFrame
         dfs = dfs.drop(indizesToRemove[feature])
         dfs = dfs.reset_index(drop=True)
@@ -273,14 +272,12 @@ def remove_outliers_from_dataframes(dfs, numerical_columns, categorical_columns,
 
 def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
     
-    all_outlier_row_indizes = {}
+    all_outlier_row_indizes = []
     ######################
-    # Remove numerical outliers
+    # Find numerical outliers
     ######################
     iqr_indizes = {}
     z_indizes = {}
-    previousSize = len(df)
-    #print(f'Previous dataframe size {len(df)}')
     for feature in df[numerical_columns]:
         z_indizes[feature] = find_zscore_outliers_asindizes(df[feature], 2)
         iqr_indizes[feature] = find_outliers_IQR_asindizes(df[feature])
@@ -291,48 +288,21 @@ def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, thresh
 
         # find the common outliers
         common_outliers = zscore_outliers_set.intersection(iqr_outliers_set)
-        amountToDrop = len(common_outliers)
-        expectedAmount = len(df[feature]) - amountToDrop
-        #print(f'{amountToDrop} should be dropped')
-
-        # assuming your data is in a pandas DataFrame named 'df'
-        # remove the common outliers from the DataFrame
-        df = df.drop(common_outliers)
-        df = df.reset_index(drop=True)
-        #print(f'Expected amount: {expectedAmount} and current amount: {len(df[feature])}')
-    #newSize = len(df)
-    #print(f'New dataframe size {len(df)}')
-    #print(f'A total of {previousSize - newSize} rows have been dropped')
+        all_outlier_row_indizes.extend(common_outliers)
     
     ######################
-    # Remove categorical outliers
+    # Find categorical outliers
     ######################
     
     cat_outliers = find_outliers_by_threshold(df[categorical_columns], threshold, True)
-    previousSize = len(df)
-    indizesToRemove = {}
-    #print(f'Previous dataframe size {len(df)}')
     for feature in df[categorical_columns]:
         
         # calculate the index that should be dropped
-        indizesToRemove[feature] = [] # Initialize an empty list for each feature
         for value in cat_outliers[feature]:        
-            indizesToRemove[feature].extend(find_value_indices(df[categorical_columns],feature, value))
-        
-        amountToDrop = len(indizesToRemove[feature])
-        expectedAmount = len(df[feature]) - amountToDrop
-        #print(f'{amountToDrop} should be dropped')
-
-        # assuming your data is in a pandas DataFrame named 'df'
-        # remove the common outliers from the DataFrame
-        df = df.drop(indizesToRemove[feature])
-        df = df.reset_index(drop=True)
-        #print(f'Expected amount: {expectedAmount} and current amount: {len(df[feature])}')
-    newSize = len(df)
-    #print(f'New dataframe size {len(df)}')
-    #print(f'A total of {previousSize - newSize} rows have been dropped')
+            all_outlier_row_indizes.extend(find_value_indices(df[categorical_columns],feature, value))
     
-    return df
+    all_outlier_row_indizes = set(all_outlier_row_indizes)
+    return list(all_outlier_row_indizes)
 
 
 class OneHotDecoderTransformer(BaseEstimator, TransformerMixin):

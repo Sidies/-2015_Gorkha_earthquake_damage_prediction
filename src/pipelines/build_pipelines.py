@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import tqdm as tqdm
 
+
 from joblib import dump
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.model_selection import StratifiedKFold
@@ -28,6 +29,7 @@ from src.features.build_features import CustomColumnTransformer, DummyTransforme
     RemoveFeatureTransformer
 from src.features import build_features
 from src.visualization.visualize import get_verbose_correlations
+from src.data import configuration as config
 
 
 def get_best_steps():
@@ -172,50 +174,13 @@ class CustomPipeline:
         y_train = X_train['damage_grade']
         X_train = X_train.drop(columns=['damage_grade'])
 
-        categorical_columns = [
-            'building_id',
-            'geo_level_1_id',
-            'geo_level_2_id',
-            'geo_level_3_id',
-            'land_surface_condition',
-            'foundation_type',
-            'roof_type',
-            'ground_floor_type',
-            'other_floor_type',
-            'position',
-            'plan_configuration',
-            'has_superstructure_adobe_mud',
-            'has_superstructure_mud_mortar_stone',
-            'has_superstructure_stone_flag',
-            'has_superstructure_cement_mortar_stone',
-            'has_superstructure_mud_mortar_brick',
-            'has_superstructure_cement_mortar_brick',
-            'has_superstructure_timber',
-            'has_superstructure_bamboo',
-            'has_superstructure_rc_non_engineered',
-            'has_superstructure_rc_engineered',
-            'has_superstructure_other',
-            'legal_ownership_status',
-            'has_secondary_use',
-            'has_secondary_use_agriculture',
-            'has_secondary_use_hotel',
-            'has_secondary_use_rental',
-            'has_secondary_use_institution',
-            'has_secondary_use_school',
-            'has_secondary_use_industry',
-            'has_secondary_use_health_post',
-            'has_secondary_use_gov_office',
-            'has_secondary_use_use_police',
-            'has_secondary_use_other'
-        ]
+        categorical_columns = config.categorical_columns
 
-        numerical_columns = [
-            'count_floors_pre_eq',
-            'age',
-            'area_percentage',
-            'height_percentage',
-            'count_families'
-        ]
+        numerical_columns = config.numerical_columns
+        
+        has_secondary_use_columns = config.has_secondary_use_columns
+    
+        has_superstructure_columns = config.has_superstructure_columns
 
         if self.apply_ordinal_encoding:
             # apply an initial ordinal encoding on the categorical features
@@ -238,9 +203,12 @@ class CustomPipeline:
         X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
 
         # rows we found to contain outliers which can therefore be dropped
-        rows_to_remove = []  # TODO
-        X_train = X_train.drop(index=rows_to_remove)
-        y_train = y_train.drop(index=rows_to_remove)
+        # remove the has_secondary_use and has_superstructure columns to not run analysis on them
+        new_categorical_columns = list(set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
+        
+        row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns, new_categorical_columns, 0.2)
+        X_train = X_train.drop(index=row_indizes_to_remove)
+        y_train = y_train.drop(index=row_indizes_to_remove)
 
         # columns we found to be uninformative which can therefore be dropped
         columns_to_remove = [
@@ -252,6 +220,9 @@ class CustomPipeline:
             'has_superstructure_rc_non_engineered',
             'legal_ownership_status',
             'count_families'
+            'has_superstructure_cement_mortar_stone',
+            'has_superstructure_rc_engineered', 
+            'has_superstructure_other'
         ]
         feature_remover = RemoveFeatureTransformer(features_to_drop=columns_to_remove)
         X_train = feature_remover.fit_transform(X_train, y_train)

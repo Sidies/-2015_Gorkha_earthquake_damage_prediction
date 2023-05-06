@@ -46,6 +46,19 @@ class TestBuildFeatures(unittest.TestCase):
 
         test1 = build_features.find_outliers_by_threshold(train_df, 0.7)
         self.assertIn('1', str(test1['has_superstructure_mud_mortar_brick'])), f"expected value 1 in {test1['has_superstructure_mud_mortar_brick']}"
+        
+    def test_get_outlier_rows_as_index(self):
+        train_df = pd.read_csv('data/raw/train_values.csv')
+        outliersIndizes = build_features.get_outlier_rows_as_index(train_df, ['age'], [])
+        self.assertTrue(np.isin(train_df.index[train_df['age'] == 995], outliersIndizes).all())
+        
+        # rows we found to contain outliers which can therefore be dropped
+        # remove the has_secondary_use and has_superstructure columns to not run analysis on them
+        new_categorical_columns = list(set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
+        
+        row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns, new_categorical_columns, 0.2)
+        X_train = X_train.drop(index=row_indizes_to_remove)
+        y_train = y_train.drop(index=row_indizes_to_remove) 
 
     # def test_DropRowsTransformer(self):
     #     # create a sample dataframe
