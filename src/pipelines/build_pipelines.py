@@ -87,12 +87,14 @@ class CustomPipeline:
             self,
             steps,
             apply_ordinal_encoding=True,
-            display_feature_importances=False
+            display_feature_importances=False,
+            skip_evaluation=False
     ):
         self.steps = steps
         self.apply_ordinal_encoding = apply_ordinal_encoding
         self.display_feature_importances = display_feature_importances
         self.pipeline = Pipeline(steps=self.steps)
+        self.skip_evaluation = skip_evaluation
 
     def run(self):
         print('loading data')
@@ -112,8 +114,8 @@ class CustomPipeline:
         pipeline.fit(X_train, y_train)
 
         print('evaluating pipeline')
-
-        self.evaluate(pipeline, X_train, y_train)
+        if not(self.skip_evaluation):
+            self.evaluate(pipeline, X_train, y_train)
 
         print('storing model and prediction')
 
