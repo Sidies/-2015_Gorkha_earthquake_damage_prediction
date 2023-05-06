@@ -85,24 +85,21 @@ class CustomPipeline:
 
     def __init__(
             self,
-            raw_data_directory_path,
-            store_prediction_directory_path,
             steps,
             apply_ordinal_encoding=True,
             display_feature_importances=False
     ):
-        self.raw_data_directory_path = raw_data_directory_path
-        self.store_prediction_directory_path = store_prediction_directory_path
         self.steps = steps
         self.apply_ordinal_encoding = apply_ordinal_encoding
         self.display_feature_importances = display_feature_importances
 
     def run(self):
         print('loading data')
-        print(config.ROOT_DIR)
-        X_train = pd.read_csv(os.path.join(self.raw_data_directory_path, 'train_values.csv'))
-        y_train = pd.read_csv(os.path.join(self.raw_data_directory_path, 'train_labels.csv'))
-        X_test = pd.read_csv(os.path.join(self.raw_data_directory_path, 'test_values.csv'))
+        #print(config.ROOT_DIR)
+        
+        X_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
+        y_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
+        X_test = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
 
         print('preparing data')
 
@@ -132,8 +129,8 @@ class CustomPipeline:
         })
 
         # store trained model and prediction
-        dump(pipeline, os.path.join(self.store_prediction_directory_path, 'tyrell_prediction.joblib'))
-        y_pred.to_csv(os.path.join(self.store_prediction_directory_path, 'tyrell_prediction.csv'), index=False)
+        dump(pipeline, os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.joblib'))
+        y_pred.to_csv(os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.csv'), index=False)
 
     def evaluate(self, pipeline, X_train, y_train):
         if self.display_feature_importances:
@@ -203,6 +200,7 @@ class CustomPipeline:
         X_test[categorical_columns] = X_test[categorical_columns].astype('category')
         X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
 
+        # --------- Outlier Removal -----------
         # rows we found to contain outliers which can therefore be dropped
         # remove the has_secondary_use and has_superstructure columns to not run analysis on them
         new_categorical_columns = list(set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
@@ -210,6 +208,9 @@ class CustomPipeline:
         row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns, new_categorical_columns, 0.2)
         X_train = build_features.remove_rows_by_integer_index(X_train, row_indizes_to_remove)
         y_train = build_features.remove_rows_by_integer_index(y_train, row_indizes_to_remove)
+        
+        if len(X_train) != len(y_train):
+            print('Error: X_train is not equal length to y_train!')
 
         # columns we found to be uninformative which can therefore be dropped
         columns_to_remove = [
