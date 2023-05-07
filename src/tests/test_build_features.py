@@ -111,6 +111,38 @@ class TestBuildFeatures(unittest.TestCase):
         new_df = OneHotDecoderTransformer(one_hot_features=['a', 'b'], new_feature='feature').fit_transform(df)
 
         assert new_df.equals(test_df)
+        
+    def test_CombineFeatureTransformer(self):
+        df = pd.DataFrame({
+            'first': ['Dirk', 'Kobe', 'Tim', 'Lebron'],
+            'last': ['Nowitzki', 'Bryant', 'Duncan', 'James'],
+        })
+
+        test_df = pd.DataFrame({
+            'first': ['Dirk', 'Kobe', 'Tim', 'Lebron'],
+            'last': ['Nowitzki', 'Bryant', 'Duncan', 'James'],
+            'first last': ['Dirk Nowitzki', 'Kobe Bryant', 'Tim Duncan', 'Lebron James'],
+        })
+
+        new_df = CombineFeatureTransformer('first', 'last').fit_transform(df)
+
+        assert new_df.equals(test_df), f"Expected the dataframes to match but got: \n {new_df}"
+        
+        df = pd.DataFrame({
+            'a': [1, 0, 0, 0, 1],
+            'b': [0, 1, 1, 0, 1],
+        })
+
+        test_df = pd.DataFrame({
+            'a': [1, 0, 0, 0, 1],
+            'b': [0, 1, 1, 0, 1],
+            'a b': ['1 0', '0 1', '0 1', '0 0', '1 1'],
+        })
+        
+        new_df = CombineFeatureTransformer('a', 'b').fit_transform(df)
+
+        assert new_df.equals(test_df), f"Expected the dataframes to match but got: \n {new_df} instead of \n {test_df}"
+        
 
 
 if __name__ == '__main__':
