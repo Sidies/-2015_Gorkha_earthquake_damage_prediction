@@ -21,6 +21,7 @@ from category_encoders.glmm import GLMMEncoder
 from category_encoders.one_hot import OneHotEncoder
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders.target_encoder import TargetEncoder
+from sklearn.preprocessing import MinMaxScaler
 
 from lightgbm import LGBMClassifier
 
@@ -35,7 +36,7 @@ from src.data import configuration as config
 
 def get_best_steps():
     # additional feature selection by removing certain columns
-    feature_remover = RemoveFeatureTransformer([])
+    feature_remover = RemoveFeatureTransformer(['age'])
 
     # feature engineering
     feature_engineering = DummyTransformer()
@@ -62,7 +63,7 @@ def get_best_steps():
     encoder = BinaryEncoder()
 
     # scales numerical features
-    scaler = RobustScaler()
+    scaler = MinMaxScaler()
 
     # trains and predicts on the transformed data
     estimator = DecisionTreeClassifier()
