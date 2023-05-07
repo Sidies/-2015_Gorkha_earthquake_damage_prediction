@@ -87,45 +87,78 @@ class CustomPipeline:
     X_train = pd.DataFrame()
     y_train = pd.DataFrame()
     X_test = pd.DataFrame()
+    X_test_building_id = []
     evaluation_scoring = {}
+    initial_label_encoder_ = LabelEncoder()
 
     def __init__(
             self,
             steps,
             apply_ordinal_encoding=True,
             display_feature_importances=False,
-            skip_evaluation=False
+            skip_evaluation=False,
+            skip_storing=False,
+            force_data_cleaning=False
     ):
         self.steps = steps
         self.apply_ordinal_encoding = apply_ordinal_encoding
         self.display_feature_importances = display_feature_importances
         self.pipeline = Pipeline(steps=self.steps)
         self.skip_evaluation = skip_evaluation
+        self.skip_storing = skip_storing
+        self.force_data_cleaning = force_data_cleaning
         
-    def load_data(self):
+    def load_and_prep_data(self):        
         print('loading data')
-        self.X_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
-        self.y_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
-        self.X_test = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
+        
+        '''
+        self.X_train = pd.DataFrame()
+        self.y_train = pd.DataFrame()
+        self.X_test = pd.DataFrame()
+        self.X_test_building_id = []
+        
+        if not(self.force_data_cleaning):
+            X_test_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
+            X_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
+            y_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
+            X_test_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
+            
+            if X_test_path.is_file() and X_train_path.is_file() and y_train_path.is_file() and X_test_building_id_path.is_file():
+                self.X_test = pd.read_csv(X_test_path)
+                self.X_train = pd.read_csv(X_train_path)
+                self.y_train = pd.read_csv(y_train_path)
+                self.X_test_building_id = pd.read_csv(X_test_building_id_path).squeeze("columns")
+        '''
+        if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(self.X_test_building_id) <= 0 or self.force_data_cleaning:
+            self.force_data_cleaning = True
+            self.X_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
+            self.y_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
+            self.X_test = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
 
     def run(self):
-        self.load_data()
+        self.load_and_prep_data()   
+        
         print('preparing data')
-
-        X_train, y_train, X_test, X_test_building_id = self.clean(X_train, y_train, X_test)
+        if self.force_data_cleaning:            
+            self.X_train, self.y_train, self.X_test, self.X_test_building_id = self.clean(self.X_train, self.y_train, self.X_test, storeData=True, apply_ordinal_encoding=self.apply_ordinal_encoding)
+        
+        # ----- Apply custom preparations -----
+        
 
         print('running pipeline')
 
+        # ---------- Start the pipeline -------------
         pipeline = self.pipeline #Pipeline(steps=self.steps)
-        pipeline.fit(X_train, y_train)
-
-        print('evaluating pipeline')
+        pipeline.fit(self.X_train, self.y_train)
+        
+        
         if not(self.skip_evaluation):
-            self.evaluate(pipeline, X_train, y_train)
+            print('evaluating pipeline')        
+            self.evaluate(pipeline, self.X_train, self.y_train)
 
-        print('storing model and prediction')
-
-        self.store(pipeline, X_test, X_test_building_id)
+        if not(self.skip_storing):
+            print('storing model and prediction')
+            self.store(pipeline, self.X_test, self.X_test_building_id)
 
     def store(self, pipeline, X_test, X_test_building_id):
         # format prediction
@@ -141,17 +174,19 @@ class CustomPipeline:
         dump(pipeline, os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.joblib'))
         y_pred.to_csv(os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.csv'), index=False)
 
-    def evaluate(self, pipeline, X_train, y_train):
+    def evaluate(self, pipeline, X_train, y_train, giveTextOutput = True):
         if self.display_feature_importances:
             X_train_preprocessed = pd.DataFrame(pipeline[:-1].transform(X_train))
             df = X_train_preprocessed.copy()
             df[y_train.name] = y_train
-            with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                print(get_verbose_correlations(
-                    df,
-                    X_train_preprocessed.columns,
-                    [y_train.name])
-                )
+            
+            if giveTextOutput:
+                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                    print(get_verbose_correlations(
+                        df,
+                        X_train_preprocessed.columns,
+                        [y_train.name])
+                    )
 
             if isinstance(pipeline.named_steps['estimator'], LGBMClassifier):
                 feature_names = pipeline.named_steps['estimator'].booster_.feature_name()
@@ -160,8 +195,9 @@ class CustomPipeline:
             feature_importances = pipeline.named_steps['estimator'].feature_importances_
             df = pd.DataFrame(zip(feature_names, feature_importances), columns=['feature', 'importance'])
             df = df.sort_values(by=['importance'], ascending=False, ignore_index=True)
-            with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                print(df)
+            if giveTextOutput:
+                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                    print(df)
 
         scoring = {
             'accuracy': 'accuracy',
@@ -169,13 +205,19 @@ class CustomPipeline:
             'mcc': make_scorer(matthews_corrcoef)
         }
         scores = cross_validate(pipeline, X_train, y_train, scoring=scoring, cv=5)
-        for score in scores:
-            print('    ' + score + ':', scores[score].mean())
+        if giveTextOutput: 
+            for score in scores:
+                print('    ' + score + ':', scores[score].mean())
         
         # safe to local class variable    
         self.evaluation_scoring = scores
 
-    def clean(self, X_train, y_train, X_test, recalculateOutliers = False):
+    def clean(self, X_train, y_train, X_test, storeData = False, apply_ordinal_encoding=True):
+        
+        X_test_building_id = self.X_test_building_id
+        X_train = self.X_train
+        y_train = self.y_train
+        
         # store building_id of test set as it is required in the submission format of the prediction
         X_test_building_id = X_test['building_id']
 
@@ -191,16 +233,18 @@ class CustomPipeline:
         has_secondary_use_columns = config.has_secondary_use_columns
     
         has_superstructure_columns = config.has_superstructure_columns
-
-        if self.apply_ordinal_encoding:
+        
+        # apply ordinal encoding
+        if apply_ordinal_encoding:
             # apply an initial ordinal encoding on the categorical features
             self.initial_ordinal_encoder_ = OrdinalEncoder(cols=categorical_columns)
             X_train = self.initial_ordinal_encoder_.fit_transform(X_train)
             X_test = self.initial_ordinal_encoder_.transform(X_test)
 
             self.initial_label_encoder_ = LabelEncoder()
+            labelData = self.initial_label_encoder_.fit_transform(y_train)
             y_train = pd.Series(
-                data=self.initial_label_encoder_.fit_transform(y_train),
+                data=labelData,
                 index=y_train.index,
                 name=y_train.name
             )
@@ -248,5 +292,17 @@ class CustomPipeline:
         #         categorical_columns.remove(column)
         #     if column in numerical_columns:
         #         numerical_columns.remove(column)
-
+        
+        if storeData:
+            print('storing cleaned data')
+            X_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'), index = False)
+            y_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'), index = False)
+            X_test.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'), index = False)
+            X_test_building_id.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'), index = False)
+            
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_test = X_test
+        self.X_test_building_id = X_test_building_id
+        
         return X_train, y_train, X_test, X_test_building_id
