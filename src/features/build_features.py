@@ -663,9 +663,9 @@ class CombineFeatureTransformer(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         
-        if is_numeric_dtype(X[self.feature1]) or is_numeric_dtype(X[self.feature2].dtype):
-            X[self.feature1] = X[self.feature1].astype(str)
-            X[self.feature2] = X[self.feature2].astype(str)
+        #if is_numeric_dtype(X[self.feature1]) or is_numeric_dtype(X[self.feature2].dtype):
+        #    X[self.feature1] = X[self.feature1].astype(str)
+        #    X[self.feature2] = X[self.feature2].astype(str)
         
-        X[self.feature1 + ' ' + self.feature2] = X[self.feature1] + ' ' + X[self.feature2]
+        X[self.feature1 + ' ' + self.feature2] = X[self.feature1] + X[self.feature2]
         return X
