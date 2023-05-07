@@ -83,6 +83,12 @@ def get_best_steps():
 
 class CustomPipeline:
 
+    # class variables
+    X_train = pd.DataFrame()
+    y_train = pd.DataFrame()
+    X_test = pd.DataFrame()
+    evaluation_scoring = {}
+
     def __init__(
             self,
             steps,
@@ -95,15 +101,15 @@ class CustomPipeline:
         self.display_feature_importances = display_feature_importances
         self.pipeline = Pipeline(steps=self.steps)
         self.skip_evaluation = skip_evaluation
+        
+    def load_data(self):
+        print('loading data')
+        self.X_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
+        self.y_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
+        self.X_test = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
 
     def run(self):
-        print('loading data')
-        #print(config.ROOT_DIR)
-        
-        X_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
-        y_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
-        X_test = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
-
+        self.load_data()
         print('preparing data')
 
         X_train, y_train, X_test, X_test_building_id = self.clean(X_train, y_train, X_test)
@@ -165,6 +171,9 @@ class CustomPipeline:
         scores = cross_validate(pipeline, X_train, y_train, scoring=scoring, cv=5)
         for score in scores:
             print('    ' + score + ':', scores[score].mean())
+        
+        # safe to local class variable    
+        self.evaluation_scoring = scores
 
     def clean(self, X_train, y_train, X_test, recalculateOutliers = False):
         # store building_id of test set as it is required in the submission format of the prediction
