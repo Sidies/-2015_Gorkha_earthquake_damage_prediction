@@ -6,7 +6,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from category_encoders.ordinal import OrdinalEncoder
-
+from pandas.api.types import is_numeric_dtype
 
 def create_one_hot_encoding(df):
     """
@@ -651,3 +651,21 @@ class CustomColumnTransformer(ColumnTransformer):
     def fit_transform(self, X, y=None):
         super().fit_transform(X, y)
         return self.transform(X)
+
+class CombineFeatureTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self, feature1, feature2):
+        self.feature1 = feature1
+        self.feature2 = feature2
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        
+        if is_numeric_dtype(X[self.feature1]) or is_numeric_dtype(X[self.feature2].dtype):
+            X[self.feature1] = X[self.feature1].astype(str)
+            X[self.feature2] = X[self.feature2].astype(str)
+        
+        X[self.feature1 + ' ' + self.feature2] = X[self.feature1] + ' ' + X[self.feature2]
+        return X

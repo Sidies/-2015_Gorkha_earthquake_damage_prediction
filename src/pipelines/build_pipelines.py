@@ -13,7 +13,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import accuracy_score, f1_score, make_scorer, matthews_corrcoef, roc_auc_score
 from sklearn.model_selection import cross_val_score, cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, RobustScaler
+from sklearn.preprocessing import LabelEncoder, RobustScaler, KBinsDiscretizer
 from sklearn.tree import DecisionTreeClassifier
 
 from category_encoders.binary import BinaryEncoder
@@ -36,7 +36,9 @@ from src.data import configuration as config
 def get_best_steps():
     # additional feature selection by removing certain columns
     feature_remover = RemoveFeatureTransformer([])
-
+    
+    kbins = KBinsDiscretizer(n_bins=2, strategy='uniform', encode='ordinal')
+    
     # feature engineering
     feature_engineering = DummyTransformer()
 
@@ -72,6 +74,9 @@ def get_best_steps():
     return [
         ('feature_remover', feature_remover),
         ('feature_engineering', feature_engineering),
+        ('discretizer', CustomColumnTransformer([
+            ('bins', kbins, make_column_selector(dtype_include=['float64']))
+        ], remainder='passthrough')),
         #('onehot_decoder_secondary_use', onehot_decoder_secondary_use),
         ('encoder_and_scaler', CustomColumnTransformer([
             ('encoder', encoder, make_column_selector(dtype_include=['category', 'object'])),
@@ -87,6 +92,9 @@ class CustomPipeline:
     X_train = pd.DataFrame()
     y_train = pd.DataFrame()
     X_test = pd.DataFrame()
+    X_train_raw = pd.DataFrame()
+    y_train_raw = pd.DataFrame()
+    X_test_raw = pd.DataFrame()
     X_test_building_id = []
     evaluation_scoring = {}
     initial_label_encoder_ = LabelEncoder()
@@ -111,10 +119,13 @@ class CustomPipeline:
     def load_and_prep_data(self):        
         print('loading data')
         
-        '''
+        
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
         self.X_test = pd.DataFrame()
+        self.X_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
+        self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
+        self.X_test_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
         self.X_test_building_id = []
         
         if not(self.force_data_cleaning):
@@ -128,12 +139,12 @@ class CustomPipeline:
                 self.X_train = pd.read_csv(X_train_path)
                 self.y_train = pd.read_csv(y_train_path)
                 self.X_test_building_id = pd.read_csv(X_test_building_id_path).squeeze("columns")
-        '''
+        
         if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(self.X_test_building_id) <= 0 or self.force_data_cleaning:
             self.force_data_cleaning = True
-            self.X_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
-            self.y_train = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
-            self.X_test = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
+            self.X_train = self.X_train_raw
+            self.y_train = self.y_train_raw
+            self.X_test = self.X_test_raw
 
     def run(self):
         self.load_and_prep_data()   
@@ -163,7 +174,12 @@ class CustomPipeline:
     def store(self, pipeline, X_test, X_test_building_id):
         # format prediction
         y_pred = pipeline.predict(X_test)
+        
         if self.apply_ordinal_encoding:  # decode prediction if we applied ordinal/label encoding earlier
+            X_train_temp = self.X_train_raw.merge(self.y_train_raw)
+            y_train_temp = X_train_temp['damage_grade']
+            
+            self.initial_label_encoder_ = self.initial_label_encoder_.fit(y_train_temp)
             y_pred = self.initial_label_encoder_.inverse_transform(y_pred)
         y_pred = pd.DataFrame({
             'building_id': X_test_building_id,
@@ -212,7 +228,7 @@ class CustomPipeline:
         # safe to local class variable    
         self.evaluation_scoring = scores
 
-    def clean(self, X_train, y_train, X_test, storeData = False, apply_ordinal_encoding=True):
+    def clean(self, X_train, y_train, X_test, storeData = True, apply_ordinal_encoding=True):
         
         X_test_building_id = self.X_test_building_id
         X_train = self.X_train
