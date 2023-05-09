@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import tqdm as tqdm
 
-
 from joblib import dump
 from pathlib import Path
 from sklearn.compose import ColumnTransformer, make_column_selector
@@ -39,7 +38,7 @@ def get_best_steps():
     feature_remover = RemoveFeatureTransformer(['age'])
 
     # discretize numerical features
-    kbins = KBinsDiscretizer(n_bins=2, strategy='uniform', encode='ordinal')
+    discretizer = KBinsDiscretizer(n_bins=2, strategy='uniform', encode='ordinal')
 
     # encodes categorical features
     encoder = BinaryEncoder()
@@ -55,7 +54,8 @@ def get_best_steps():
     return [
         ('feature_remover', feature_remover),
         ('discretizer', CustomColumnTransformer([
-            ('bins', kbins, make_column_selector(dtype_exclude=['category', 'object']))
+            ('bins', discretizer, make_column_selector(dtype_exclude=['category', 'object'])),
+            ('dummy', DummyTransformer(), make_column_selector(dtype_include=['category', 'object'])) # necessary to keep feature names
         ], remainder='passthrough')),
         ('encoder_and_scaler', CustomColumnTransformer([
             ('encoder', encoder, make_column_selector(dtype_include=['category', 'object'])),
@@ -66,7 +66,6 @@ def get_best_steps():
 
 
 class CustomPipeline:
-
     # class variables
     X_train = pd.DataFrame()
     y_train = pd.DataFrame()
@@ -81,19 +80,41 @@ class CustomPipeline:
     def __init__(
             self,
             steps,
-            display_feature_importances=False,
+            force_cleaning=False,
+            skip_storing_cleaning=False,
             skip_evaluation=False,
-            skip_storing=False,
-            force_data_cleaning=False
+            skip_feature_evaluation=True,
+            print_evaluation=True,
+            skip_storing_prediction=False,
     ):
-        self.steps = steps
-        self.display_feature_importances = display_feature_importances
-        self.pipeline = Pipeline(steps=self.steps)
+        self.pipeline = Pipeline(steps=steps)
+        self.force_cleaning = force_cleaning
+        self.skip_storing_cleaning = skip_storing_cleaning
         self.skip_evaluation = skip_evaluation
-        self.skip_storing = skip_storing
-        self.force_data_cleaning = force_data_cleaning
-        
-    def load_and_prep_data(self):        
+        self.skip_feature_evaluation = skip_feature_evaluation
+        self.print_evaluation = print_evaluation
+        self.skip_storing_prediction = skip_storing_prediction
+
+    def run(self):
+        self.load_and_prep_data()
+
+        print('preparing data')
+        if self.force_cleaning:
+            self.clean()
+
+        print('running pipeline')
+
+        self.pipeline.fit(self.X_train, self.y_train)
+
+        if not self.skip_evaluation:
+            print('evaluating pipeline')
+            self.evaluate()
+
+        if not self.skip_storing_prediction:
+            print('storing model and prediction')
+            self.store()
+
+    def load_and_prep_data(self):
         print('loading data')
 
         self.X_train = pd.DataFrame()
@@ -103,13 +124,13 @@ class CustomPipeline:
         self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv')).squeeze()
         self.X_test_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
         self.X_test_building_id = []
-        
-        if not(self.force_data_cleaning):
+
+        if not (self.force_cleaning):
             X_test_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
             X_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
             y_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
             X_test_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
-            
+
             if X_test_path.is_file() and X_train_path.is_file() and y_train_path.is_file() and X_test_building_id_path.is_file():
                 self.X_test = pd.read_csv(X_test_path)
                 self.X_train = pd.read_csv(X_train_path)
@@ -124,94 +145,20 @@ class CustomPipeline:
                 self.y_train = self.y_train.astype('category')
                 self.X_test[categorical_columns] = self.X_test[categorical_columns].astype('category')
                 self.X_test[numerical_columns] = self.X_test[numerical_columns].astype(np.float64)
-        
-        if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(self.X_test_building_id) <= 0 or self.force_data_cleaning:
-            self.force_data_cleaning = True
+
+        if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(
+                self.X_test_building_id) <= 0 or self.force_cleaning:
+            self.force_cleaning = True
             self.X_train = self.X_train_raw
             self.y_train = self.y_train_raw
             self.X_test = self.X_test_raw
 
-    def run(self):
-        self.load_and_prep_data()   
-        
-        print('preparing data')
-        if self.force_data_cleaning:            
-            self.clean(storeData=True)
-        
-        # ----- Apply custom preparations -----
-        
+    def clean(self):
 
-        print('running pipeline')
-
-        # ---------- Start the pipeline -------------
-        pipeline = self.pipeline #Pipeline(steps=self.steps)
-        pipeline.fit(self.X_train, self.y_train)
-        
-        
-        if not(self.skip_evaluation):
-            print('evaluating pipeline')        
-            self.evaluate(pipeline, self.X_train, self.y_train)
-
-        if not(self.skip_storing):
-            print('storing model and prediction')
-            self.store(pipeline, self.X_test, self.X_test_building_id)
-
-    def store(self, pipeline, X_test, X_test_building_id):
-        # format prediction
-        y_pred = pipeline.predict(X_test)
-        y_pred = pd.DataFrame({
-            'building_id': X_test_building_id,
-            'damage_grade': y_pred
-        })
-
-        # store trained model and prediction
-        dump(pipeline, os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.joblib'))
-        y_pred.to_csv(os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.csv'), index=False)
-
-    def evaluate(self, pipeline, X_train, y_train, giveTextOutput = True):
-        if self.display_feature_importances:
-            X_train_preprocessed = pd.DataFrame(pipeline[:-1].transform(X_train))
-            df = X_train_preprocessed.copy()
-            df[y_train.name] = y_train
-            
-            if giveTextOutput:
-                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                    print(get_verbose_correlations(
-                        df,
-                        X_train_preprocessed.columns,
-                        [y_train.name])
-                    )
-
-            if isinstance(pipeline.named_steps['estimator'], LGBMClassifier):
-                feature_names = pipeline.named_steps['estimator'].booster_.feature_name()
-            else:
-                feature_names = pipeline.named_steps['estimator'].feature_names_in_
-            feature_importances = pipeline.named_steps['estimator'].feature_importances_
-            df = pd.DataFrame(zip(feature_names, feature_importances), columns=['feature', 'importance'])
-            df = df.sort_values(by=['importance'], ascending=False, ignore_index=True)
-            if giveTextOutput:
-                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                    print(df)
-
-        scoring = {
-            'accuracy': 'accuracy',
-            'f1-score': 'f1_macro',
-            'mcc': make_scorer(matthews_corrcoef)
-        }
-        scores = cross_validate(pipeline, X_train, y_train, scoring=scoring, cv=5)
-        if giveTextOutput: 
-            for score in scores:
-                print('    ' + score + ':', scores[score].mean())
-        
-        # safe to local class variable    
-        self.evaluation_scoring = scores
-
-    def clean(self, storeData = True):
-        
         X_test = self.X_test
         X_train = self.X_train
         y_train = self.y_train
-        
+
         # store building_id of test set as it is required in the submission format of the prediction
         X_test_building_id = X_test['building_id']
 
@@ -221,8 +168,8 @@ class CustomPipeline:
         X_train = X_train.drop(columns=['damage_grade'])
 
         categorical_columns = config.categorical_columns
-        numerical_columns = config.numerical_columns        
-        has_secondary_use_columns = config.has_secondary_use_columns    
+        numerical_columns = config.numerical_columns
+        has_secondary_use_columns = config.has_secondary_use_columns
         has_superstructure_columns = config.has_superstructure_columns
 
         # update data types
@@ -233,16 +180,22 @@ class CustomPipeline:
         X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
 
         # --------- Outlier Removal -----------
-        # rows we found to contain outliers which can therefore be dropped
+
         # remove the has_secondary_use and has_superstructure columns to not run analysis on them
-        new_categorical_columns = list(set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
-        
-        row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns, new_categorical_columns, 0.2)
+        new_categorical_columns = list(
+            set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
+
+        # rows we found to contain outliers which can therefore be dropped
+        row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns,
+                                                                         new_categorical_columns, 0.2)
+
         X_train = build_features.remove_rows_by_integer_index(X_train, row_indizes_to_remove)
         y_train = build_features.remove_rows_by_integer_index(y_train, row_indizes_to_remove)
-        
+
         if len(X_train) != len(y_train):
             print('Error: X_train is not equal length to y_train!')
+
+        # --------- Feature Removal -----------
 
         # columns we found to be uninformative which can therefore be dropped
         columns_to_remove = [
@@ -255,12 +208,15 @@ class CustomPipeline:
             'legal_ownership_status',
             'count_families'
             'has_superstructure_cement_mortar_stone',
-            'has_superstructure_rc_engineered', 
+            'has_superstructure_rc_engineered',
             'has_superstructure_other'
         ]
+
         feature_remover = RemoveFeatureTransformer(features_to_drop=columns_to_remove)
         X_train = feature_remover.fit_transform(X_train, y_train)
         X_test = feature_remover.transform(X_test)
+
+        # --------- One-Hot Decoding -----------
 
         # decode onehot-encoded secondary use features
         onehot_decoder_secondary_use = OneHotDecoderTransformer(
@@ -281,17 +237,84 @@ class CustomPipeline:
         )
         X_train = onehot_decoder_secondary_use.fit_transform(X_train, y_train)
         X_test = onehot_decoder_secondary_use.transform(X_test)
-        
-        if storeData:
+
+        if not self.skip_storing_cleaning:
             print('storing cleaned data')
-            X_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'), index = False)
-            y_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'), index = False)
-            X_test.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'), index = False)
-            X_test_building_id.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'), index = False)
-            
+            X_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'), index=False)
+            y_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'), index=False)
+            X_test.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'), index=False)
+            X_test_building_id.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'), index=False)
+
         self.X_train = X_train
         self.y_train = y_train
         self.X_test = X_test
         self.X_test_building_id = X_test_building_id
-        
-        return X_train, y_train, X_test, X_test_building_id
+
+    def evaluate(self):
+        scores = {}
+
+        if not self.skip_feature_evaluation:
+            # ---------- Feature Target Correlation ----------
+
+            # get preprocessed train set
+            df = pd.DataFrame(self.pipeline[:-1].transform(self.X_train)).copy()
+
+            # store feature names
+            feature_names = df.columns
+            target_name = self.y_train.name
+
+            # merge train set and target for easier analysis
+            df[target_name] = self.y_train
+
+            scores['feature_target_correlations'] = get_verbose_correlations(
+                df,
+                feature_names,
+                [target_name]
+            )
+
+            if self.print_evaluation:
+                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                    print(scores['feature_target_correlations'])
+
+            # ---------- Estimator Feature Importance ----------
+
+            # get importance of features for estimator
+            feature_importances = self.pipeline.named_steps['estimator'].feature_importances_
+
+            # merge importances with feature names
+            df = pd.DataFrame(zip(feature_names, feature_importances), columns=['feature', 'importance'])
+            df = df.sort_values(by=['importance'], ascending=False, ignore_index=True)
+
+            scores['estimator_feature_importance'] = df
+
+            if self.print_evaluation:
+                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                    print(scores['estimator_feature_importance'])
+
+        scoring = {
+            'accuracy': 'accuracy',
+            'f1-score': 'f1_macro',
+            'mcc': make_scorer(matthews_corrcoef)
+        }
+        performance_scores = cross_validate(self.pipeline, self.X_train, self.y_train, scoring=scoring, cv=5)
+
+        if self.print_evaluation:
+            for score in performance_scores:
+                print('    ' + score + ':', performance_scores[score].mean())
+
+        scores.update(performance_scores)
+
+        # safe to local class variable
+        self.evaluation_scoring = scores
+
+    def store(self):
+        # format prediction
+        y_pred = self.pipeline.predict(self.X_test)
+        y_pred = pd.DataFrame({
+            'building_id': self.X_test_building_id,
+            'damage_grade': y_pred
+        })
+
+        # store trained model and prediction
+        dump(self.pipeline, os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.joblib'))
+        y_pred.to_csv(os.path.join(config.ROOT_DIR, 'models/tyrell_prediction.csv'), index=False)
