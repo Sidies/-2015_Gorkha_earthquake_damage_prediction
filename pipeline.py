@@ -5,11 +5,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def run(display_feature_importance=False):
+def run(force_cleaning=False, display_feature_importance=False):
     pipeline = CustomPipeline(
         steps=get_best_steps(),
-        apply_ordinal_encoding=False,
-        display_feature_importances=display_feature_importance
+        display_feature_importances=display_feature_importance,
+        force_data_cleaning=force_cleaning
     )
     pipeline.run()
 
@@ -24,14 +24,13 @@ if __name__ == '__main__':
         help='pass if you want to display feature importance information'
     )
     parser.add_argument(
-        '--ot',
-        type=float,
-        default=0.98,
-        help='Threshold value for the outlier detection')
-    parser.add_argument(
-        '--mi',
+        '--force-cleaning',
         action='store_true',
-        help='If this flag is set to true, more information about the pipeline progress will be displayed')
+        help='pass if you want to force the cleaning step'
+    )
     args = parser.parse_args()
 
-    run(display_feature_importance=args.feature_importance)
+    run(
+        force_cleaning=args.force_cleaning,
+        display_feature_importance=args.feature_importance
+    )

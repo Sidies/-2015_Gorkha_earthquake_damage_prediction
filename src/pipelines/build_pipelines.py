@@ -38,27 +38,8 @@ def get_best_steps():
     # additional feature selection by removing certain columns
     feature_remover = RemoveFeatureTransformer(['age'])
 
+    # discretize numerical features
     kbins = KBinsDiscretizer(n_bins=2, strategy='uniform', encode='ordinal')
-    # feature engineering
-    feature_engineering = DummyTransformer()
-
-    # decode onehot-encoded secondary use features
-    onehot_decoder_secondary_use = OneHotDecoderTransformer(
-        one_hot_features=[
-            'has_secondary_use_agriculture',
-            'has_secondary_use_hotel',
-            'has_secondary_use_rental',
-            'has_secondary_use_institution',
-            'has_secondary_use_school',
-            'has_secondary_use_industry',
-            'has_secondary_use_health_post',
-            'has_secondary_use_gov_office',
-            'has_secondary_use_use_police',
-            'has_secondary_use_other'
-        ],
-        new_feature='secondary_use',
-        default='none'
-    )
 
     # encodes categorical features
     encoder = BinaryEncoder()
@@ -73,11 +54,9 @@ def get_best_steps():
 
     return [
         ('feature_remover', feature_remover),
-        ('feature_engineering', feature_engineering),
         ('discretizer', CustomColumnTransformer([
-            ('bins', kbins, make_column_selector(dtype_include=['float64']))
+            ('bins', kbins, make_column_selector(dtype_exclude=['category', 'object']))
         ], remainder='passthrough')),
-        #('onehot_decoder_secondary_use', onehot_decoder_secondary_use),
         ('encoder_and_scaler', CustomColumnTransformer([
             ('encoder', encoder, make_column_selector(dtype_include=['category', 'object'])),
             ('scaler', scaler, make_column_selector(dtype_exclude=['category', 'object']))
@@ -102,14 +81,12 @@ class CustomPipeline:
     def __init__(
             self,
             steps,
-            apply_ordinal_encoding=True,
             display_feature_importances=False,
             skip_evaluation=False,
             skip_storing=False,
             force_data_cleaning=False
     ):
         self.steps = steps
-        self.apply_ordinal_encoding = apply_ordinal_encoding
         self.display_feature_importances = display_feature_importances
         self.pipeline = Pipeline(steps=self.steps)
         self.skip_evaluation = skip_evaluation
@@ -118,13 +95,12 @@ class CustomPipeline:
         
     def load_and_prep_data(self):        
         print('loading data')
-        
-        
+
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
         self.X_test = pd.DataFrame()
         self.X_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
-        self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv'))
+        self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv')).squeeze()
         self.X_test_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
         self.X_test_building_id = []
         
@@ -137,8 +113,17 @@ class CustomPipeline:
             if X_test_path.is_file() and X_train_path.is_file() and y_train_path.is_file() and X_test_building_id_path.is_file():
                 self.X_test = pd.read_csv(X_test_path)
                 self.X_train = pd.read_csv(X_train_path)
-                self.y_train = pd.read_csv(y_train_path)
+                self.y_train = pd.read_csv(y_train_path).squeeze()
                 self.X_test_building_id = pd.read_csv(X_test_building_id_path).squeeze("columns")
+
+                # update data types
+                categorical_columns = list(set(self.X_train.columns) - set(config.numerical_columns))
+                numerical_columns = list(set(self.X_train.columns) - set(config.categorical_columns))
+                self.X_train[categorical_columns] = self.X_train[categorical_columns].astype('category')
+                self.X_train[numerical_columns] = self.X_train[numerical_columns].astype(np.float64)
+                self.y_train = self.y_train.astype('category')
+                self.X_test[categorical_columns] = self.X_test[categorical_columns].astype('category')
+                self.X_test[numerical_columns] = self.X_test[numerical_columns].astype(np.float64)
         
         if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(self.X_test_building_id) <= 0 or self.force_data_cleaning:
             self.force_data_cleaning = True
@@ -151,7 +136,7 @@ class CustomPipeline:
         
         print('preparing data')
         if self.force_data_cleaning:            
-            self.clean(storeData=True, apply_ordinal_encoding=self.apply_ordinal_encoding)
+            self.clean(storeData=True)
         
         # ----- Apply custom preparations -----
         
@@ -174,14 +159,6 @@ class CustomPipeline:
     def store(self, pipeline, X_test, X_test_building_id):
         # format prediction
         y_pred = pipeline.predict(X_test)
-        
-        if self.apply_ordinal_encoding:  # decode prediction if we applied ordinal/label encoding earlier
-            X_train_temp = self.X_train_raw.merge(self.y_train_raw)
-            y_train_temp = X_train_temp['damage_grade']
-            
-            self.initial_label_encoder_ = LabelEncoder()
-            self.initial_label_encoder_ = self.initial_label_encoder_.fit(y_train_temp)
-            y_pred = self.initial_label_encoder_.inverse_transform(y_pred)
         y_pred = pd.DataFrame({
             'building_id': X_test_building_id,
             'damage_grade': y_pred
@@ -229,7 +206,7 @@ class CustomPipeline:
         # safe to local class variable    
         self.evaluation_scoring = scores
 
-    def clean(self, storeData = True, apply_ordinal_encoding=True):
+    def clean(self, storeData = True):
         
         X_test = self.X_test
         X_train = self.X_train
@@ -247,21 +224,6 @@ class CustomPipeline:
         numerical_columns = config.numerical_columns        
         has_secondary_use_columns = config.has_secondary_use_columns    
         has_superstructure_columns = config.has_superstructure_columns
-        
-        # apply ordinal encoding
-        if apply_ordinal_encoding:
-            # apply an initial ordinal encoding on the categorical features
-            self.initial_ordinal_encoder_ = OrdinalEncoder(cols=categorical_columns)
-            X_train = self.initial_ordinal_encoder_.fit_transform(X_train)
-            X_test = self.initial_ordinal_encoder_.transform(X_test)
-
-            self.initial_label_encoder_ = LabelEncoder()
-            labelData = self.initial_label_encoder_.fit_transform(y_train)
-            y_train = pd.Series(
-                data=labelData,
-                index=y_train.index,
-                name=y_train.name
-            )
 
         # update data types
         X_train[categorical_columns] = X_train[categorical_columns].astype('category')
@@ -300,12 +262,25 @@ class CustomPipeline:
         X_train = feature_remover.fit_transform(X_train, y_train)
         X_test = feature_remover.transform(X_test)
 
-        # update categorical and numerical column lists
-        # for column in columns_to_remove:
-        #     if column in categorical_columns:
-        #         categorical_columns.remove(column)
-        #     if column in numerical_columns:
-        #         numerical_columns.remove(column)
+        # decode onehot-encoded secondary use features
+        onehot_decoder_secondary_use = OneHotDecoderTransformer(
+            one_hot_features=[
+                'has_secondary_use_agriculture',
+                'has_secondary_use_hotel',
+                'has_secondary_use_rental',
+                'has_secondary_use_institution',
+                'has_secondary_use_school',
+                'has_secondary_use_industry',
+                'has_secondary_use_health_post',
+                'has_secondary_use_gov_office',
+                'has_secondary_use_use_police',
+                'has_secondary_use_other'
+            ],
+            new_feature='has_secondary_use',
+            default='none'
+        )
+        X_train = onehot_decoder_secondary_use.fit_transform(X_train, y_train)
+        X_test = onehot_decoder_secondary_use.transform(X_test)
         
         if storeData:
             print('storing cleaned data')

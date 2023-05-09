@@ -430,15 +430,12 @@ class OneHotDecoderTransformer(BaseEstimator, TransformerMixin):
         df_encoded = df.copy()
         df = df.astype('int')
 
-        # only interate over rows with no occurences of 1
-        for index, row in df[df.sum(axis=1) == 0].iterrows():
-            new_feature = self.default
-
-            if new_feature not in df_encoded.columns:
-                df_encoded[new_feature] = 0
-
-            df_encoded.loc[index, df_encoded.columns] = 0
-            df_encoded.loc[index, new_feature] = 1
+        # create a new feature for rows with no occurrences
+        rows_without_occurrences = (df.sum(axis=1) == 0)
+        if len(rows_without_occurrences) != 0:
+            df_encoded[rows_without_occurrences] = 0
+            df_encoded[self.default] = 0
+            df_encoded[self.default][rows_without_occurrences] = 1
 
         # only iterate over rows with multiple occurrences of 1
         for index, row in df[df.sum(axis=1) >= 2].iterrows():
