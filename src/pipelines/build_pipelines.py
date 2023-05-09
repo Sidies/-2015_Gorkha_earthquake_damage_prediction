@@ -75,7 +75,6 @@ class CustomPipeline:
     X_test_raw = pd.DataFrame()
     X_test_building_id = []
     evaluation_scoring = {}
-    initial_label_encoder_ = LabelEncoder()
 
     def __init__(
             self,
@@ -96,6 +95,7 @@ class CustomPipeline:
         self.skip_storing_prediction = skip_storing_prediction
 
     def run(self):
+        print('loading data')
         self.load_and_prep_data()
 
         print('preparing data')
@@ -103,7 +103,6 @@ class CustomPipeline:
             self.clean()
 
         print('running pipeline')
-
         self.pipeline.fit(self.X_train, self.y_train)
 
         if not self.skip_evaluation:
@@ -115,8 +114,6 @@ class CustomPipeline:
             self.store()
 
     def load_and_prep_data(self):
-        print('loading data')
-
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
         self.X_test = pd.DataFrame()
@@ -125,7 +122,7 @@ class CustomPipeline:
         self.X_test_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
         self.X_test_building_id = []
 
-        if not (self.force_cleaning):
+        if not self.force_cleaning:
             X_test_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
             X_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
             y_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
@@ -154,7 +151,6 @@ class CustomPipeline:
             self.X_test = self.X_test_raw
 
     def clean(self):
-
         X_test = self.X_test
         X_train = self.X_train
         y_train = self.y_train
@@ -238,6 +234,8 @@ class CustomPipeline:
         X_train = onehot_decoder_secondary_use.fit_transform(X_train, y_train)
         X_test = onehot_decoder_secondary_use.transform(X_test)
 
+        # ---------- Store Cleaned Dataset ----------
+
         if not self.skip_storing_cleaning:
             print('storing cleaned data')
             X_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'), index=False)
@@ -291,12 +289,20 @@ class CustomPipeline:
                 with pd.option_context('display.max_rows', None, 'display.max_columns', None):
                     print(scores['estimator_feature_importance'])
 
+        # ---------- Performance Metrics ----------
+
         scoring = {
             'accuracy': 'accuracy',
             'f1-score': 'f1_macro',
             'mcc': make_scorer(matthews_corrcoef)
         }
-        performance_scores = cross_validate(self.pipeline, self.X_train, self.y_train, scoring=scoring, cv=5)
+        performance_scores = cross_validate(
+            self.pipeline,
+            self.X_train,
+            self.y_train,
+            scoring=scoring,
+            cv=StratifiedKFold(n_splits=5, shuffle=True)
+        )
 
         if self.print_evaluation:
             for score in performance_scores:
