@@ -151,7 +151,7 @@ class CustomPipeline:
         
         print('preparing data')
         if self.force_data_cleaning:            
-            self.X_train, self.y_train, self.X_test, self.X_test_building_id = self.clean(self.X_train, self.y_train, self.X_test, storeData=True, apply_ordinal_encoding=self.apply_ordinal_encoding)
+            self.clean(storeData=True, apply_ordinal_encoding=self.apply_ordinal_encoding)
         
         # ----- Apply custom preparations -----
         
@@ -179,6 +179,7 @@ class CustomPipeline:
             X_train_temp = self.X_train_raw.merge(self.y_train_raw)
             y_train_temp = X_train_temp['damage_grade']
             
+            self.initial_label_encoder_ = LabelEncoder()
             self.initial_label_encoder_ = self.initial_label_encoder_.fit(y_train_temp)
             y_pred = self.initial_label_encoder_.inverse_transform(y_pred)
         y_pred = pd.DataFrame({
@@ -228,9 +229,9 @@ class CustomPipeline:
         # safe to local class variable    
         self.evaluation_scoring = scores
 
-    def clean(self, X_train, y_train, X_test, storeData = True, apply_ordinal_encoding=True):
+    def clean(self, storeData = True, apply_ordinal_encoding=True):
         
-        X_test_building_id = self.X_test_building_id
+        X_test = self.X_test
         X_train = self.X_train
         y_train = self.y_train
         
@@ -243,11 +244,8 @@ class CustomPipeline:
         X_train = X_train.drop(columns=['damage_grade'])
 
         categorical_columns = config.categorical_columns
-
-        numerical_columns = config.numerical_columns
-        
-        has_secondary_use_columns = config.has_secondary_use_columns
-    
+        numerical_columns = config.numerical_columns        
+        has_secondary_use_columns = config.has_secondary_use_columns    
         has_superstructure_columns = config.has_superstructure_columns
         
         # apply ordinal encoding
