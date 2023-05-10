@@ -33,7 +33,7 @@ from src.visualization.visualize import get_verbose_correlations
 from src.data import configuration as config
 
 
-def get_best_steps():
+def get_best_steps(customEstimator=DecisionTreeClassifier()):
     # additional feature selection by removing certain columns
     feature_remover = RemoveFeatureTransformer(['age'])
 
@@ -47,7 +47,7 @@ def get_best_steps():
     scaler = MinMaxScaler()
 
     # trains and predicts on the transformed data
-    estimator = DecisionTreeClassifier()
+    #estimator = DecisionTreeClassifier()
     # estimator = RandomForestClassifier()
     # estimator = LGBMClassifier()
 
@@ -61,7 +61,7 @@ def get_best_steps():
             ('encoder', encoder, make_column_selector(dtype_include=['category', 'object'])),
             ('scaler', scaler, make_column_selector(dtype_exclude=['category', 'object']))
         ], remainder='passthrough')),
-        ('estimator', estimator)
+        ('estimator', customEstimator)
     ]
 
 
