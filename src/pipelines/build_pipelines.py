@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import tqdm as tqdm
+import matplotlib.pyplot as plt
 
+from copy import deepcopy
 from joblib import dump
 from pathlib import Path
 from sklearn.compose import ColumnTransformer, make_column_selector
@@ -9,7 +11,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, f1_score, make_scorer, matthews_corrcoef, roc_auc_score
+from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, make_scorer,\
+    matthews_corrcoef, roc_auc_score
 from sklearn.model_selection import cross_val_score, cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, RobustScaler, KBinsDiscretizer
@@ -33,7 +36,7 @@ from src.visualization.visualize import get_verbose_correlations
 from src.data import configuration as config
 
 
-def get_best_steps(customEstimator=DecisionTreeClassifier()):
+def get_best_steps(customEstimator=None):
     # additional feature selection by removing certain columns
     feature_remover = RemoveFeatureTransformer(['age'])
 
@@ -47,9 +50,8 @@ def get_best_steps(customEstimator=DecisionTreeClassifier()):
     scaler = MinMaxScaler()
 
     # trains and predicts on the transformed data
-    #estimator = DecisionTreeClassifier()
-    # estimator = RandomForestClassifier()
-    # estimator = LGBMClassifier()
+    if customEstimator == None:
+        customEstimator = LGBMClassifier()
 
     return [
         ('feature_remover', feature_remover),
@@ -82,35 +84,44 @@ class CustomPipeline:
             force_cleaning=False,
             skip_storing_cleaning=False,
             skip_evaluation=False,
+            skip_error_evaluation=True,
             skip_feature_evaluation=True,
             print_evaluation=True,
             skip_storing_prediction=False,
+            verbose=1
     ):
         self.pipeline = Pipeline(steps=steps)
         self.force_cleaning = force_cleaning
         self.skip_storing_cleaning = skip_storing_cleaning
         self.skip_evaluation = skip_evaluation
+        self.skip_error_evaluation = skip_error_evaluation
         self.skip_feature_evaluation = skip_feature_evaluation
         self.print_evaluation = print_evaluation
         self.skip_storing_prediction = skip_storing_prediction
+        self.verbose = verbose
 
     def run(self):
-        print('loading data')
+        if self.verbose >= 1:
+            print('loading data')
         self.load_and_prep_data()
 
-        print('preparing data')
+        if self.verbose >= 1:
+            print('preparing data')
         if self.force_cleaning:
             self.clean()
 
-        print('running pipeline')
+        if self.verbose >= 1:
+            print('running pipeline')
         self.pipeline.fit(self.X_train, self.y_train)
 
         if not self.skip_evaluation:
-            print('evaluating pipeline')
+            if self.verbose >= 1:
+                print('evaluating pipeline')
             self.evaluate()
 
         if not self.skip_storing_prediction:
-            print('storing model and prediction')
+            if self.verbose >= 1:
+                print('storing model and prediction')
             self.store()
 
     def load_and_prep_data(self):
@@ -251,64 +262,89 @@ class CustomPipeline:
     def evaluate(self):
         scores = {}
 
-        if not self.skip_feature_evaluation:
-            # ---------- Feature Target Correlation ----------
+        # use a copy to avoid overwriting the training of the original pipeline
+        pipeline = deepcopy(self.pipeline)
 
+        # ---------- Performance Metrics ----------
+
+        performance_metrics = {
+            'accuracy': 'accuracy',
+            'f1-score': 'f1_macro',
+            'mcc': make_scorer(matthews_corrcoef)
+        }
+
+        performance_scores = cross_validate(
+            pipeline,
+            self.X_train,
+            self.y_train,
+            scoring=performance_metrics,
+            cv=StratifiedKFold(n_splits=5, shuffle=False)
+        )
+
+        if self.print_evaluation:
+            for metric in performance_scores:
+                if self.verbose >= 1:
+                    print('    ' + metric + ':', performance_scores[metric].mean())
+                else:
+                    print(metric + ':', performance_scores[metric].mean())
+
+        scores.update(performance_scores)
+
+        # ---------- Error Evaluation ----------
+        if not self.skip_error_evaluation:
+            X_train, X_test, y_train, y_test = train_test_split(self.X_train, self.y_train, stratify=self.y_train)
+            pipeline.fit(X_train, y_train)
+
+            cm = confusion_matrix(y_test, pipeline.predict(X_test))
+            scores['confusion_matrix'] = cm
+
+            if self.print_evaluation:
+                ConfusionMatrixDisplay(cm).plot()
+                plt.show()
+
+        if not self.skip_feature_evaluation:
             # get preprocessed train set
-            df = pd.DataFrame(self.pipeline[:-1].transform(self.X_train)).copy()
+            df = pd.DataFrame(pipeline[:-1].transform(self.X_train)).copy()
 
             # store feature names
             feature_names = df.columns
             target_name = self.y_train.name
 
-            # merge train set and target for easier analysis
-            df[target_name] = self.y_train
+            # ---------- Feature Target Correlation ----------
 
-            scores['feature_target_correlations'] = get_verbose_correlations(
-                df,
-                feature_names,
-                [target_name]
-            )
-
-            if self.print_evaluation:
-                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                    print(scores['feature_target_correlations'])
+            # # merge train set and target for easier analysis
+            # df[target_name] = self.y_train
+            #
+            # scores['feature_target_correlations'] = get_verbose_correlations(
+            #     df,
+            #     feature_names,
+            #     [target_name]
+            # )
+            #
+            # if self.print_evaluation:
+            #     with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            #         print(scores['feature_target_correlations'])
 
             # ---------- Estimator Feature Importance ----------
 
-            # get importance of features for estimator
-            feature_importances = self.pipeline.named_steps['estimator'].feature_importances_
+            if hasattr(pipeline.named_steps['estimator'], 'feature_importances_'):
+                # get importance of features for estimator
+                feature_importances = pipeline.named_steps['estimator'].feature_importances_
 
-            # merge importances with feature names
-            df = pd.DataFrame(zip(feature_names, feature_importances), columns=['feature', 'importance'])
-            df = df.sort_values(by=['importance'], ascending=False, ignore_index=True)
+                # merge importances with feature names
+                df = pd.DataFrame(zip(feature_names, feature_importances), columns=['feature', 'importance'])
+                df = df.sort_values(by=['importance'], ascending=False, ignore_index=True)
 
-            scores['estimator_feature_importance'] = df
+                scores['estimator_feature_importance'] = df
 
-            if self.print_evaluation:
-                with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-                    print(scores['estimator_feature_importance'])
+                if self.print_evaluation:
+                    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                        print(scores['estimator_feature_importance'].head(10))
+                        print(scores['estimator_feature_importance'].tail(10))
+            else:
+                if self.print_evaluation:
+                    print('no feature importances available')
 
-        # ---------- Performance Metrics ----------
-
-        scoring = {
-            'accuracy': 'accuracy',
-            'f1-score': 'f1_macro',
-            'mcc': make_scorer(matthews_corrcoef)
-        }
-        performance_scores = cross_validate(
-            self.pipeline,
-            self.X_train,
-            self.y_train,
-            scoring=scoring,
-            cv=StratifiedKFold(n_splits=5, shuffle=True)
-        )
-
-        if self.print_evaluation:
-            for score in performance_scores:
-                print('    ' + score + ':', performance_scores[score].mean())
-
-        scores.update(performance_scores)
 
         # safe to local class variable
         self.evaluation_scoring = scores
