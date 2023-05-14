@@ -24,6 +24,7 @@ from category_encoders.one_hot import OneHotEncoder
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders.target_encoder import TargetEncoder
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.neighbors import KNeighborsClassifier
 
 from lightgbm import LGBMClassifier
 
@@ -51,7 +52,8 @@ def get_best_steps(customEstimator=None):
 
     # trains and predicts on the transformed data
     if customEstimator == None:
-        customEstimator = LGBMClassifier()
+        #customEstimator = LGBMClassifier()
+        customEstimator = KNeighborsClassifier(n_neighbors=9)
 
     return [
         ('feature_remover', feature_remover),
