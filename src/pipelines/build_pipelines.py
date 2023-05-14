@@ -88,6 +88,7 @@ class CustomPipeline:
             skip_feature_evaluation=True,
             print_evaluation=True,
             skip_storing_prediction=False,
+            use_kfold_shuffle=False,
             verbose=1
     ):
         self.pipeline = Pipeline(steps=steps)
@@ -99,6 +100,7 @@ class CustomPipeline:
         self.print_evaluation = print_evaluation
         self.skip_storing_prediction = skip_storing_prediction
         self.verbose = verbose
+        self.use_kfold_shuffle = use_kfold_shuffle
 
     def run(self):
         if self.verbose >= 1:
@@ -278,7 +280,7 @@ class CustomPipeline:
             self.X_train,
             self.y_train,
             scoring=performance_metrics,
-            cv=StratifiedKFold(n_splits=5, shuffle=False)
+            cv=StratifiedKFold(n_splits=5, shuffle=self.use_kfold_shuffle)
         )
 
         if self.print_evaluation:
