@@ -88,3 +88,8 @@ data/*/*
 
 # Mypy cache
 .mypy_cache/
+
+# Virtual Environment
+venv/*/*
+venv/*
+venv/
