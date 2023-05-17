@@ -1,11 +1,13 @@
-from src.pipelines.build_pipeline import CustomPipeline, get_best_steps
+from src.pipelines.build_pipeline import CustomPipeline
+from src.pipelines import pipeline_utils
+from lightgbm import LGBMClassifier
 
 # disable warnings globally
 import warnings
 warnings.filterwarnings("ignore")
 
 
-def run(
+def run_best_performing_pipeline(
         force_cleaning=False,
         skip_storing_cleaning=False,
         skip_evaluation=False,
@@ -14,8 +16,9 @@ def run(
         print_evaluation=True,
         skip_storing_prediction=False
 ):
+    # create best performing pipeline
     pipeline = CustomPipeline(
-        steps=get_best_steps(),
+        steps=pipeline_utils.get_best_steps(),
         force_cleaning=force_cleaning,
         skip_storing_cleaning=skip_storing_cleaning,
         skip_evaluation=skip_evaluation,
@@ -25,6 +28,14 @@ def run(
         skip_storing_prediction=skip_storing_prediction
     )
     pipeline.run()
+    
+def run_lgbm_pipeline():
+    # create pipeline with lgbm classifier
+    # Create the LightGBM classifier
+    lgbm = LGBMClassifier()
+    
+    lgbm_pipeline = CustomPipeline(pipeline_utils.get_best_steps(lgbm))
+    lgbm_pipeline.run()
 
 
 if __name__ == '__main__':
@@ -56,12 +67,25 @@ if __name__ == '__main__':
         action='store_true',
         help='pass if you want to skip storing the prediction'
     )
-    args = parser.parse_args()
-
-    run(
-        force_cleaning=args.force_cleaning,
-        skip_evaluation=args.skip_evaluation,
-        skip_error_evaluation=not args.error_evaluation,
-        skip_feature_evaluation=not args.feature_importance,
-        skip_storing_prediction=args.skip_storing_prediction
+    parser.add_argument(
+        "--pipeline", 
+        choices=["best", "lgbm"], 
+        default="best",
+        help="Specify the pipeline to run"
     )
+    args = parser.parse_args()
+    
+    if args.pipeline == "best":
+        run_best_performing_pipeline(
+            force_cleaning=args.force_cleaning,
+            skip_evaluation=args.skip_evaluation,
+            skip_error_evaluation=not args.error_evaluation,
+            skip_feature_evaluation=not args.feature_importance,
+            skip_storing_prediction=args.skip_storing_prediction
+        )
+    elif args.pipeline == "lgbm":
+        run_lgbm_pipeline()
+    else:
+        print("Invalid pipeline specified.")
+
+    

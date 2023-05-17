@@ -2,89 +2,22 @@ import numpy as np
 import pandas as pd
 import tqdm as tqdm
 import matplotlib.pyplot as plt
+import os
 
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import make_pipeline
 from copy import deepcopy
 from joblib import dump
 from pathlib import Path
-from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.model_selection import StratifiedKFold
-from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, make_scorer,\
-    matthews_corrcoef, roc_auc_score
-from sklearn.model_selection import cross_val_score, cross_validate, train_test_split
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, make_scorer,\
+    matthews_corrcoef
+from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, RobustScaler, KBinsDiscretizer
-from sklearn.tree import DecisionTreeClassifier
-
-from category_encoders.binary import BinaryEncoder
-from category_encoders.glmm import GLMMEncoder
-from category_encoders.one_hot import OneHotEncoder
-from category_encoders.ordinal import OrdinalEncoder
-from category_encoders.target_encoder import TargetEncoder
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.neighbors import KNeighborsClassifier
 from collections import Counter
-
-from lightgbm import LGBMClassifier
-
-import os
-
-from src.features.build_features import CustomColumnTransformer, DummyTransformer, OneHotDecoderTransformer, \
-    RemoveFeatureTransformer
-from src.visualization.visualize import get_verbose_correlations
 from src.data import configuration as config
 from src.features import handle_outliers
 from src.features import build_features
-
-def get_best_steps(customEstimator=None):
-    """
-    Returns a list of tuples containing transformation steps to be applied in a Pipeline.
-    
-    If no custom estimator is provided, the function uses the KNeighborsClassifier with 9 neighbors as the default estimator.
-
-    Parameters:
-    customEstimator: estimator object implementing 'fit', default=None
-        The estimator to use. If not provided a default classifier will be used.
-
-    Returns:
-    steps: list of tuples
-        Each tuple contains a step name and an instance of the transformer or estimator to be applied in the Pipeline.
-    """
-    
-    # additional feature selection by removing certain columns
-    feature_remover = RemoveFeatureTransformer(['age'])
-
-    # discretize numerical features
-    discretizer = KBinsDiscretizer(n_bins=2, strategy='uniform', encode='ordinal')
-
-    # encodes categorical features
-    encoder = BinaryEncoder()
-
-    # scales numerical features
-    scaler = MinMaxScaler()
-
-    # trains and predicts on the transformed data
-    if customEstimator == None:
-        #customEstimator = LGBMClassifier()
-        customEstimator = KNeighborsClassifier(n_neighbors=9)
-
-    return [
-        ('feature_remover', feature_remover),
-        ('discretizer', CustomColumnTransformer([
-            ('bins', discretizer, make_column_selector(dtype_exclude=['category', 'object'])),
-            ('dummy', DummyTransformer(), make_column_selector(dtype_include=['category', 'object'])) # necessary to keep feature names
-        ], remainder='passthrough')),
-        ('encoder_and_scaler', CustomColumnTransformer([
-            ('encoder', encoder, make_column_selector(dtype_include=['category', 'object'])),
-            ('scaler', scaler, make_column_selector(dtype_exclude=['category', 'object']))
-        ], remainder='passthrough')),
-        ('estimator', customEstimator)
-    ]
 
 
 class CustomPipeline:
@@ -95,7 +28,6 @@ class CustomPipeline:
     evaluation, and storing of predictions. It also includes verbose output, 
     configuration of cleaning, evaluation and prediction steps, and the use of k-fold shuffling.
     """
-    # class variables
     X_train = pd.DataFrame()
     y_train = pd.DataFrame()
     test_values = pd.DataFrame()
@@ -153,25 +85,6 @@ class CustomPipeline:
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
-        
-        # Check the class distribution before resampling
-        print('Class distribution before resampling:', Counter(self.y_train['damage_grade']))
-
-        # Create an instance of RandomOverSampler for oversampling
-        over_sampler = RandomOverSampler(sampling_strategy='auto', random_state=42)
-
-        # Create an instance of RandomUnderSampler for undersampling
-        under_sampler = RandomUnderSampler(sampling_strategy='auto', random_state=42)
-
-        # Apply the resampling on the training set
-        X_train_resampled, y_train_resampled = over_sampler.fit_resample(self.X_train, self.y_train['damage_grade'])
-         
-         # Check the class distribution between resampling
-        print('Class distribution between resampling:', Counter(y_train_resampled))
-        X_train_resampled, y_train_resampled = under_sampler.fit_resample(X_train_resampled, y_train_resampled)
-        
-        # Check the class distribution after resampling
-        print('Class distribution after resampling:', Counter(y_train_resampled))
         
         if self.verbose >= 1:
             print('preparing data')
@@ -344,6 +257,27 @@ class CustomPipeline:
         self.test_values = X_test
         self.test_values_building_id = X_test_building_id
 
+
+    def resample_data(self):
+        # Check the class distribution before resampling
+        print('Class distribution before resampling:', Counter(self.y_train['damage_grade']))
+
+        # Create an instance of RandomOverSampler for oversampling
+        over_sampler = RandomOverSampler(sampling_strategy='auto', random_state=42)
+
+        # Create an instance of RandomUnderSampler for undersampling
+        under_sampler = RandomUnderSampler(sampling_strategy='auto', random_state=42)
+
+        # Apply the resampling on the training set
+        X_train_resampled, y_train_resampled = over_sampler.fit_resample(self.X_train, self.y_train['damage_grade'])
+         
+         # Check the class distribution between resampling
+        print('Class distribution between resampling:', Counter(y_train_resampled))
+        X_train_resampled, y_train_resampled = under_sampler.fit_resample(X_train_resampled, y_train_resampled)
+        
+        # Check the class distribution after resampling
+        print('Class distribution after resampling:', Counter(y_train_resampled))
+    
 
     def evaluate(self):
         """

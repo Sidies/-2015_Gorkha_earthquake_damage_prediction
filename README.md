@@ -42,13 +42,13 @@ To do this, enter the following command.
 #### Linux
 
 ```
-python3 pipeline.py
+python3 main.py
 ```
 
 #### Windows
 
 ```
-py pipeline.py
+py main.py
 ```
 
 The resulting prediction file is `\models\tyrell_prediction.csv` and the trained model is stored as `\models\tyrell_prediction.joblib`.
