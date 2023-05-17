@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from src.features import build_features
 
+
 def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
     """   
     Creates a list containing outliers for each feature of the dataframe.  
@@ -67,6 +68,7 @@ def find_outliers_by_threshold(df, threshold = 0.02, displayInfo = False):
     
     return outliers   
 
+
 def find_outliers_by_threshold_as_index(df, threshold = 0.02):
     """
     Identify the indices of outliers in a DataFrame, using a given threshold.
@@ -115,7 +117,7 @@ def find_outliers_by_threshold_as_index(df, threshold = 0.02):
             
     return outliersAsIndex
 
-#create a function to find outliers using IQR
+
 def find_outliers_IQR(list):
     """
     Identify the outliers of a list using the Interquartile Range (IQR).
@@ -152,6 +154,7 @@ def find_outliers_IQR_asindizes(list):
 
     return outlier_indices
 
+
 def find_outliers_Zscore(list, threshold=3):
     """
     Identify the outliers of a list using the Z-Score.
@@ -178,6 +181,7 @@ def find_outliers_Zscore(list, threshold=3):
 
     return outlier_values
 
+
 def find_zscore_outliers_asindizes(list, threshold=3):
     """
     Identify the indices of outliers in a list using the Z-Score.
@@ -203,6 +207,50 @@ def find_zscore_outliers_asindizes(list, threshold=3):
     outlier_indices = pd.Series(range(len(list)))[mask]
 
     return outlier_indices
+
+
+def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
+    """
+    Get the indices of outlier rows in a DataFrame.
+
+    Args:
+        df (pandas.DataFrame): DataFrame to analyze.
+        numerical_columns (list of str): List of numerical column names.
+        categorical_columns (list of str): List of categorical column names.
+        threshold (float): Threshold to identify categorical outliers.
+        minfo (bool): If True, print information about the analysis process.
+
+    Returns:
+        list: List of outlier indices.
+    """
+    all_outlier_row_indizes = []
+
+    # Find numerical outliers
+
+    iqr_indizes = {}
+    z_indizes = {}
+    for feature in df[numerical_columns]:
+        z_indizes[feature] = find_zscore_outliers_asindizes(df[feature], 2)
+        iqr_indizes[feature] = find_outliers_IQR_asindizes(df[feature])
+        
+        # convert the lists to sets for easy intersection
+        zscore_outliers_set = set(z_indizes[feature])
+        iqr_outliers_set = set(iqr_indizes[feature])
+
+        # find the common outliers
+        common_outliers = zscore_outliers_set.intersection(iqr_outliers_set)
+        all_outlier_row_indizes.extend(common_outliers)
+    
+
+    # Find categorical outliers
+    
+    cat_outliers = find_outliers_by_threshold_as_index(df[categorical_columns], threshold)
+    for feature in df[categorical_columns]:
+        # calculate the index that should be dropped      
+        all_outlier_row_indizes.extend(cat_outliers[feature])
+      
+    return all_outlier_row_indizes
+
 
 def remove_outliers_from_dataframes(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
     """
@@ -275,44 +323,4 @@ def remove_outliers_from_dataframes(df, numerical_columns, categorical_columns, 
     
     return df
 
-def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
-    """
-    Get the indices of outlier rows in a DataFrame.
 
-    Args:
-        df (pandas.DataFrame): DataFrame to analyze.
-        numerical_columns (list of str): List of numerical column names.
-        categorical_columns (list of str): List of categorical column names.
-        threshold (float): Threshold to identify categorical outliers.
-        minfo (bool): If True, print information about the analysis process.
-
-    Returns:
-        list: List of outlier indices.
-    """
-    all_outlier_row_indizes = []
-
-    # Find numerical outliers
-
-    iqr_indizes = {}
-    z_indizes = {}
-    for feature in df[numerical_columns]:
-        z_indizes[feature] = find_zscore_outliers_asindizes(df[feature], 2)
-        iqr_indizes[feature] = find_outliers_IQR_asindizes(df[feature])
-        
-        # convert the lists to sets for easy intersection
-        zscore_outliers_set = set(z_indizes[feature])
-        iqr_outliers_set = set(iqr_indizes[feature])
-
-        # find the common outliers
-        common_outliers = zscore_outliers_set.intersection(iqr_outliers_set)
-        all_outlier_row_indizes.extend(common_outliers)
-    
-
-    # Find categorical outliers
-    
-    cat_outliers = find_outliers_by_threshold_as_index(df[categorical_columns], threshold)
-    for feature in df[categorical_columns]:
-        # calculate the index that should be dropped      
-        all_outlier_row_indizes.extend(cat_outliers[feature])
-      
-    return all_outlier_row_indizes

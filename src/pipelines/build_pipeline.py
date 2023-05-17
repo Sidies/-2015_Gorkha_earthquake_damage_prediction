@@ -3,6 +3,9 @@ import pandas as pd
 import tqdm as tqdm
 import matplotlib.pyplot as plt
 
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.pipeline import make_pipeline
 from copy import deepcopy
 from joblib import dump
 from pathlib import Path
@@ -25,6 +28,7 @@ from category_encoders.ordinal import OrdinalEncoder
 from category_encoders.target_encoder import TargetEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import KNeighborsClassifier
+from collections import Counter
 
 from lightgbm import LGBMClassifier
 
@@ -32,10 +36,10 @@ import os
 
 from src.features.build_features import CustomColumnTransformer, DummyTransformer, OneHotDecoderTransformer, \
     RemoveFeatureTransformer
-from src.features import build_features, handle_outliers
 from src.visualization.visualize import get_verbose_correlations
 from src.data import configuration as config
-
+from src.features import handle_outliers
+from src.features import build_features
 
 def get_best_steps(customEstimator=None):
     """
@@ -51,6 +55,7 @@ def get_best_steps(customEstimator=None):
     steps: list of tuples
         Each tuple contains a step name and an instance of the transformer or estimator to be applied in the Pipeline.
     """
+    
     # additional feature selection by removing certain columns
     feature_remover = RemoveFeatureTransformer(['age'])
 
@@ -93,11 +98,11 @@ class CustomPipeline:
     # class variables
     X_train = pd.DataFrame()
     y_train = pd.DataFrame()
-    X_test = pd.DataFrame()
+    test_values = pd.DataFrame()
     X_train_raw = pd.DataFrame()
     y_train_raw = pd.DataFrame()
-    X_test_raw = pd.DataFrame()
-    X_test_building_id = []
+    test_values_raw = pd.DataFrame()
+    test_values_building_id = []
     evaluation_scoring = {}
 
     def __init__(
@@ -148,7 +153,26 @@ class CustomPipeline:
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
+        
+        # Check the class distribution before resampling
+        print('Class distribution before resampling:', Counter(self.y_train['damage_grade']))
 
+        # Create an instance of RandomOverSampler for oversampling
+        over_sampler = RandomOverSampler(sampling_strategy='auto', random_state=42)
+
+        # Create an instance of RandomUnderSampler for undersampling
+        under_sampler = RandomUnderSampler(sampling_strategy='auto', random_state=42)
+
+        # Apply the resampling on the training set
+        X_train_resampled, y_train_resampled = over_sampler.fit_resample(self.X_train, self.y_train['damage_grade'])
+         
+         # Check the class distribution between resampling
+        print('Class distribution between resampling:', Counter(y_train_resampled))
+        X_train_resampled, y_train_resampled = under_sampler.fit_resample(X_train_resampled, y_train_resampled)
+        
+        # Check the class distribution after resampling
+        print('Class distribution after resampling:', Counter(y_train_resampled))
+        
         if self.verbose >= 1:
             print('preparing data')
         if self.force_cleaning:
@@ -176,27 +200,27 @@ class CustomPipeline:
         """
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
-        self.X_test = pd.DataFrame()
-        self.X_test_building_id = []
+        self.test_values = pd.DataFrame()
+        self.test_values_building_id = []
         # loading the raw uncleaned data
         self.X_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
         self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv')).squeeze()
-        self.X_test_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
+        self.test_values_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
         
         if not self.force_cleaning:
             # if the force cleaning flag is not set, the cleaned and prepared data from the interim folder is loaded
-            X_test_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
-            X_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
-            y_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
-            X_test_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
+            test_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
+            train_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
+            target_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
+            test_values_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
 
             # in the following it will be checked whether the paths contain files and the files are loaded
             # the data types will also be updated
-            if X_test_path.is_file() and X_train_path.is_file() and y_train_path.is_file() and X_test_building_id_path.is_file():
-                self.X_test = pd.read_csv(X_test_path)
-                self.X_train = pd.read_csv(X_train_path)
-                self.y_train = pd.read_csv(y_train_path).squeeze()
-                self.X_test_building_id = pd.read_csv(X_test_building_id_path).squeeze("columns")
+            if test_values_path.is_file() and train_values_path.is_file() and target_values_path.is_file() and test_values_building_id_path.is_file():
+                self.test_values = pd.read_csv(test_values_path)
+                self.X_train = pd.read_csv(train_values_path)
+                self.y_train = pd.read_csv(target_values_path).squeeze()
+                self.test_values_building_id = pd.read_csv(test_values_building_id_path).squeeze("columns")
 
                 # update data types
                 categorical_columns = list(set(self.X_train.columns) - set(config.numerical_columns))
@@ -204,24 +228,26 @@ class CustomPipeline:
                 self.X_train[categorical_columns] = self.X_train[categorical_columns].astype('category')
                 self.X_train[numerical_columns] = self.X_train[numerical_columns].astype(np.float64)
                 self.y_train = self.y_train.astype('category')
-                self.X_test[categorical_columns] = self.X_test[categorical_columns].astype('category')
-                self.X_test[numerical_columns] = self.X_test[numerical_columns].astype(np.float64)
+                self.test_values[categorical_columns] = self.test_values[categorical_columns].astype('category')
+                self.test_values[numerical_columns] = self.test_values[numerical_columns].astype(np.float64)
         
         # if there is an issue with loading the prepared data or the data is not present the raw data will be used instead
         # the cleaning function is then triggered
-        if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(
-                self.X_test_building_id) <= 0 or self.force_cleaning:
+        if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.test_values) <= 0 or len(
+                self.test_values_building_id) <= 0 or self.force_cleaning:
             self.force_cleaning = True
             self.X_train = self.X_train_raw
             self.y_train = self.y_train_raw
-            self.X_test = self.X_test_raw
+            self.test_values = self.test_values_raw
+            
 
     def clean(self):
         """
         Cleans the data by removing outliers, unnecessary features, and doing one-hot decoding. 
         It also stores the cleaned data if not instructed otherwise.
         """
-        X_test = self.X_test
+        
+        X_test = self.test_values
         X_train = self.X_train
         y_train = self.y_train
 
@@ -229,7 +255,7 @@ class CustomPipeline:
         X_test_building_id = X_test['building_id']
 
         # remove building_id from target
-        X_train = X_train.merge(y_train)
+        X_train = pd.merge(X_train, y_train)
         y_train = X_train['damage_grade']
         X_train = X_train.drop(columns=['damage_grade'])
 
@@ -253,7 +279,7 @@ class CustomPipeline:
 
         # rows we found to contain outliers which can therefore be dropped
         row_indizes_to_remove = handle_outliers.get_outlier_rows_as_index(X_train, numerical_columns,
-                                                                         new_categorical_columns, 0.2)
+                                                                            new_categorical_columns, 0.2)
 
         X_train = build_features.remove_rows_by_integer_index(X_train, row_indizes_to_remove)
         y_train = build_features.remove_rows_by_integer_index(y_train, row_indizes_to_remove)
@@ -278,14 +304,14 @@ class CustomPipeline:
             'has_superstructure_other'
         ]
 
-        feature_remover = RemoveFeatureTransformer(features_to_drop=columns_to_remove)
+        feature_remover = build_features.RemoveFeatureTransformer(features_to_drop=columns_to_remove)
         X_train = feature_remover.fit_transform(X_train, y_train)
         X_test = feature_remover.transform(X_test)
 
         # --------- One-Hot Decoding -----------
 
         # decode onehot-encoded secondary use features
-        onehot_decoder_secondary_use = OneHotDecoderTransformer(
+        onehot_decoder_secondary_use = build_features.OneHotDecoderTransformer(
             one_hot_features=[
                 'has_secondary_use_agriculture',
                 'has_secondary_use_hotel',
@@ -315,8 +341,9 @@ class CustomPipeline:
 
         self.X_train = X_train
         self.y_train = y_train
-        self.X_test = X_test
-        self.X_test_building_id = X_test_building_id
+        self.test_values = X_test
+        self.test_values_building_id = X_test_building_id
+
 
     def evaluate(self):
         """
@@ -417,9 +444,9 @@ class CustomPipeline:
         Stores the trained model and the predictions, formatting the prediction into the required format.
         """
         # format prediction
-        y_pred = self.pipeline.predict(self.X_test)
+        y_pred = self.pipeline.predict(self.test_values)
         y_pred = pd.DataFrame({
-            'building_id': self.X_test_building_id,
+            'building_id': self.test_values_building_id,
             'damage_grade': y_pred
         })
 

@@ -1,4 +1,4 @@
-from src.pipelines.build_pipelines import CustomPipeline, get_best_steps
+from src.pipelines.build_pipeline import CustomPipeline, get_best_steps
 
 # disable warnings globally
 import warnings

@@ -15,6 +15,7 @@ import argparse
 from src.features import handle_outliers
 from sklearn.pipeline import Pipeline
 from src.data import configuration as config
+from src.features import build_features
 
 class TestBuildFeatures(unittest.TestCase):
 
@@ -29,7 +30,8 @@ class TestBuildFeatures(unittest.TestCase):
         test1 = handle_outliers.find_outliers_by_threshold(train_df, 0.7, False)
         self.assertIn('1', str(test1['has_superstructure_mud_mortar_brick'])), f"expected value 1 in {test1['has_superstructure_mud_mortar_brick']}"
         
-    def test_get_outlier_rows_as_index(self):
+        
+    def test_get_and_remove_outliers(self):
         train_df = pd.read_csv('data/raw/train_values.csv')
         
         outliersIndizes = handle_outliers.get_outlier_rows_as_index(train_df, ['age'], [])
@@ -40,9 +42,11 @@ class TestBuildFeatures(unittest.TestCase):
         new_categorical_columns = list(set(config.categorical_columns) - set(config.has_superstructure_columns) - set(config.has_secondary_use_columns))
         oldSize = len(train_df)
         row_indizes_to_remove = handle_outliers.get_outlier_rows_as_index(train_df, config.numerical_columns, new_categorical_columns, 0.2)
-        train_df = handle_outliers.remove_rows_by_integer_index(train_df, row_indizes_to_remove)
+        
+        train_df = build_features.remove_rows_by_integer_index(train_df, row_indizes_to_remove)
         newSize = len(train_df)
         self.assertLess(newSize, oldSize)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
