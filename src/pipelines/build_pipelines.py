@@ -38,6 +38,19 @@ from src.data import configuration as config
 
 
 def get_best_steps(customEstimator=None):
+    """
+    Returns a list of tuples containing transformation steps to be applied in a Pipeline.
+    
+    If no custom estimator is provided, the function uses the KNeighborsClassifier with 9 neighbors as the default estimator.
+
+    Parameters:
+    customEstimator: estimator object implementing 'fit', default=None
+        The estimator to use. If not provided a default classifier will be used.
+
+    Returns:
+    steps: list of tuples
+        Each tuple contains a step name and an instance of the transformer or estimator to be applied in the Pipeline.
+    """
     # additional feature selection by removing certain columns
     feature_remover = RemoveFeatureTransformer(['age'])
 
@@ -70,6 +83,13 @@ def get_best_steps(customEstimator=None):
 
 
 class CustomPipeline:
+    """
+    A custom pipeline class for running machine learning pipelines. 
+    
+    This class allows for various steps including data loading, preparation, cleaning, 
+    evaluation, and storing of predictions. It also includes verbose output, 
+    configuration of cleaning, evaluation and prediction steps, and the use of k-fold shuffling.
+    """
     # class variables
     X_train = pd.DataFrame()
     y_train = pd.DataFrame()
@@ -93,6 +113,20 @@ class CustomPipeline:
             use_kfold_shuffle=False,
             verbose=1
     ):
+        """
+        Initializes the CustomPipeline instance with specific steps and configurations.
+
+        :param steps: List of (name, transform) tuples specifying the pipeline steps.
+        :param force_cleaning: Whether to force data cleaning, defaults to False.
+        :param skip_storing_cleaning: Whether to skip storing of cleaned data, defaults to False.
+        :param skip_evaluation: Whether to skip evaluation of the pipeline, defaults to False.
+        :param skip_error_evaluation: Whether to skip error evaluation, defaults to True.
+        :param skip_feature_evaluation: Whether to skip feature evaluation, defaults to True.
+        :param print_evaluation: Whether to print the evaluation, defaults to True.
+        :param skip_storing_prediction: Whether to skip storing of prediction, defaults to False.
+        :param use_kfold_shuffle: Whether to use k-fold shuffling in evaluation, defaults to False.
+        :param verbose: Verbosity level of the output that describes how much should printed to terminal, defaults to 1.
+        """
         self.pipeline = Pipeline(steps=steps)
         self.force_cleaning = force_cleaning
         self.skip_storing_cleaning = skip_storing_cleaning
@@ -104,7 +138,12 @@ class CustomPipeline:
         self.verbose = verbose
         self.use_kfold_shuffle = use_kfold_shuffle
 
+
     def run(self):
+        """
+        Runs the entire pipeline including data loading, preparation, cleaning, 
+        fitting the model, evaluation, and storing of prediction.
+        """
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
@@ -129,6 +168,10 @@ class CustomPipeline:
             self.store()
 
     def load_and_prep_data(self):
+        """
+        Loads and prepares the data. It reads the raw data, updates data types, and 
+        checks if cleaning is required.
+        """
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
         self.X_test = pd.DataFrame()
@@ -166,6 +209,10 @@ class CustomPipeline:
             self.X_test = self.X_test_raw
 
     def clean(self):
+        """
+        Cleans the data by removing outliers, unnecessary features, and doing one-hot decoding. 
+        It also stores the cleaned data if not instructed otherwise.
+        """
         X_test = self.X_test
         X_train = self.X_train
         y_train = self.y_train
@@ -264,6 +311,10 @@ class CustomPipeline:
         self.X_test_building_id = X_test_building_id
 
     def evaluate(self):
+        """
+        Evaluates the pipeline using performance metrics, error evaluation and feature evaluation. 
+        It stores the scores and optionally prints the evaluation results.
+        """
         scores = {}
 
         # use a copy to avoid overwriting the training of the original pipeline
@@ -354,6 +405,9 @@ class CustomPipeline:
         self.evaluation_scoring = scores
 
     def store(self):
+        """
+        Stores the trained model and the predictions, formatting the prediction into the required format.
+        """
         # format prediction
         y_pred = self.pipeline.predict(self.X_test)
         y_pred = pd.DataFrame({
