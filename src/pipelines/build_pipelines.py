@@ -32,7 +32,7 @@ import os
 
 from src.features.build_features import CustomColumnTransformer, DummyTransformer, OneHotDecoderTransformer, \
     RemoveFeatureTransformer
-from src.features import build_features
+from src.features import build_features, handle_outliers
 from src.visualization.visualize import get_verbose_correlations
 from src.data import configuration as config
 
@@ -144,6 +144,7 @@ class CustomPipeline:
         Runs the entire pipeline including data loading, preparation, cleaning, 
         fitting the model, evaluation, and storing of prediction.
         """
+        
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
@@ -167,6 +168,7 @@ class CustomPipeline:
                 print('storing model and prediction')
             self.store()
 
+
     def load_and_prep_data(self):
         """
         Loads and prepares the data. It reads the raw data, updates data types, and 
@@ -175,17 +177,21 @@ class CustomPipeline:
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
         self.X_test = pd.DataFrame()
+        self.X_test_building_id = []
+        # loading the raw uncleaned data
         self.X_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
         self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv')).squeeze()
         self.X_test_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
-        self.X_test_building_id = []
-
+        
         if not self.force_cleaning:
+            # if the force cleaning flag is not set, the cleaned and prepared data from the interim folder is loaded
             X_test_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
             X_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
             y_train_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
             X_test_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
 
+            # in the following it will be checked whether the paths contain files and the files are loaded
+            # the data types will also be updated
             if X_test_path.is_file() and X_train_path.is_file() and y_train_path.is_file() and X_test_building_id_path.is_file():
                 self.X_test = pd.read_csv(X_test_path)
                 self.X_train = pd.read_csv(X_train_path)
@@ -200,7 +206,9 @@ class CustomPipeline:
                 self.y_train = self.y_train.astype('category')
                 self.X_test[categorical_columns] = self.X_test[categorical_columns].astype('category')
                 self.X_test[numerical_columns] = self.X_test[numerical_columns].astype(np.float64)
-
+        
+        # if there is an issue with loading the prepared data or the data is not present the raw data will be used instead
+        # the cleaning function is then triggered
         if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.X_test) <= 0 or len(
                 self.X_test_building_id) <= 0 or self.force_cleaning:
             self.force_cleaning = True
@@ -244,7 +252,7 @@ class CustomPipeline:
             set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
 
         # rows we found to contain outliers which can therefore be dropped
-        row_indizes_to_remove = build_features.get_outlier_rows_as_index(X_train, numerical_columns,
+        row_indizes_to_remove = handle_outliers.get_outlier_rows_as_index(X_train, numerical_columns,
                                                                          new_categorical_columns, 0.2)
 
         X_train = build_features.remove_rows_by_integer_index(X_train, row_indizes_to_remove)

@@ -37,32 +37,6 @@ class TestBuildFeatures(unittest.TestCase):
         # check if the new dataframe matches the test dataframe
         assert new_df.equals(test_df),  f"Expected: \n {test_df} \n but got: \n {new_df}"
 
-    def test_filter_values_by_threshold(self):
-        train_df = pd.read_csv('data/raw/train_values.csv')
-        build_features.find_outliers_by_threshold(train_df, 0.02, False)
-
-        #self.assertListEqual(filter_values['count_floors_pre_eq'], [4,5,6,7,8,9])
-        #self.assertTrue(all(value > 50 for value in filter_values['age']))
-        #self.assertNotIn('r', filter_values['foundation_type'])
-
-        test1 = build_features.find_outliers_by_threshold(train_df, 0.7, False)
-        self.assertIn('1', str(test1['has_superstructure_mud_mortar_brick'])), f"expected value 1 in {test1['has_superstructure_mud_mortar_brick']}"
-        
-    def test_get_outlier_rows_as_index(self):
-        train_df = pd.read_csv('data/raw/train_values.csv')
-        
-        outliersIndizes = build_features.get_outlier_rows_as_index(train_df, ['age'], [])
-        #self.assertTrue(np.isin(train_df.index[train_df['age'] == 995], outliersIndizes).all()), "expected all indizes for age 995 to be with the outlier indizes"
-                
-        # rows we found to contain outliers which can therefore be dropped
-        # remove the has_secondary_use and has_superstructure columns to not run analysis on them
-        new_categorical_columns = list(set(config.categorical_columns) - set(config.has_superstructure_columns) - set(config.has_secondary_use_columns))
-        oldSize = len(train_df)
-        row_indizes_to_remove = build_features.get_outlier_rows_as_index(train_df, config.numerical_columns, new_categorical_columns, 0.2)
-        train_df = build_features.remove_rows_by_integer_index(train_df, row_indizes_to_remove)
-        newSize = len(train_df)
-        self.assertLess(newSize, oldSize)
-
     # def test_DropRowsTransformer(self):
     #     # create a sample dataframe
     #     df = pd.DataFrame({
