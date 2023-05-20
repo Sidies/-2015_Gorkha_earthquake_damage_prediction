@@ -162,7 +162,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "--pipeline", 
-        choices=["best", "lgbm", "multiple"], 
+        choices=["best", "lgbm", "test", "multiple"], 
         default="best",
         help="Specify the pipeline to run"
     )
@@ -178,6 +178,14 @@ if __name__ == '__main__':
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
+            force_cleaning=args.force_cleaning,
+            skip_evaluation=args.skip_evaluation,
+            skip_error_evaluation=not args.error_evaluation,
+            skip_feature_evaluation=not args.feature_importance,
+            skip_storing_prediction=args.skip_storing_prediction
+        )
+    elif args.pipeline == "test":
+        run_test_pipeline(
             force_cleaning=args.force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
