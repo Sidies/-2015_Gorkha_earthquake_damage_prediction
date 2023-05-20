@@ -1,6 +1,6 @@
 from src.pipelines.build_pipeline import CustomPipeline
 from src.pipelines import pipeline_utils
-from lightgbm import LGBMClassifier
+
 
 # disable warnings globally
 import warnings
@@ -18,7 +18,6 @@ def run_best_performing_pipeline(
 ):
     # create best performing pipeline
     pipeline = CustomPipeline(
-        steps=pipeline_utils.get_best_steps(),
         force_cleaning=force_cleaning,
         skip_storing_cleaning=skip_storing_cleaning,
         skip_evaluation=skip_evaluation,
@@ -27,15 +26,32 @@ def run_best_performing_pipeline(
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction
     )
+    pipeline_utils.add_best_steps(pipeline)
     pipeline.run()
     
-def run_lgbm_pipeline():
-    # create pipeline with lgbm classifier
-    # Create the LightGBM classifier
-    lgbm = LGBMClassifier()
+def run_lgbm_pipeline(
+    force_cleaning=False,
+    skip_storing_cleaning=False,
+    skip_evaluation=False,
+    skip_error_evaluation=True,
+    skip_feature_evaluation=True,
+    print_evaluation=True,
+    skip_storing_prediction=False
+):
     
-    lgbm_pipeline = CustomPipeline(pipeline_utils.get_best_steps(lgbm))
+    lgbm_pipeline = CustomPipeline(
+        force_cleaning=force_cleaning,
+        skip_storing_cleaning=skip_storing_cleaning,
+        skip_evaluation=skip_evaluation,
+        skip_error_evaluation=skip_error_evaluation,
+        skip_feature_evaluation=skip_feature_evaluation,
+        print_evaluation=print_evaluation,
+        skip_storing_prediction=skip_storing_prediction
+        )
+    pipeline_utils.add_best_steps(custom_pipeline=lgbm_pipeline)
+    pipeline_utils.add_lgbm_classifier(lgbm_pipeline)
     lgbm_pipeline.run()
+    
 
 
 if __name__ == '__main__':
@@ -84,7 +100,13 @@ if __name__ == '__main__':
             skip_storing_prediction=args.skip_storing_prediction
         )
     elif args.pipeline == "lgbm":
-        run_lgbm_pipeline()
+        run_lgbm_pipeline(
+            force_cleaning=args.force_cleaning,
+            skip_evaluation=args.skip_evaluation,
+            skip_error_evaluation=not args.error_evaluation,
+            skip_feature_evaluation=not args.feature_importance,
+            skip_storing_prediction=args.skip_storing_prediction
+        )
     else:
         print("Invalid pipeline specified.")
 

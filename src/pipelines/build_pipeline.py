@@ -6,6 +6,7 @@ import os
 
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
+from imblearn.pipeline import Pipeline as ImbPipeline
 from copy import deepcopy
 from joblib import dump
 from pathlib import Path
@@ -36,10 +37,10 @@ class CustomPipeline:
     test_values_raw = pd.DataFrame()
     test_values_building_id = []
     evaluation_scoring = {}
+    pipeline_steps = []
 
     def __init__(
             self,
-            steps,
             force_cleaning=False,
             skip_storing_cleaning=False,
             skip_evaluation=False,
@@ -64,7 +65,6 @@ class CustomPipeline:
         :param use_kfold_shuffle: Whether to use k-fold shuffling in evaluation, defaults to False.
         :param verbose: Verbosity level of the output that describes how much should printed to terminal, defaults to 1.
         """
-        self.pipeline = Pipeline(steps=steps)
         self.force_cleaning = force_cleaning
         self.skip_storing_cleaning = skip_storing_cleaning
         self.skip_evaluation = skip_evaluation
@@ -76,12 +76,52 @@ class CustomPipeline:
         self.use_kfold_shuffle = use_kfold_shuffle
 
 
+    def add_new_step(self, transformer, name):
+        """Adds a new step to the pipeline at the second to last position.
+
+        Args:
+            transformer (transformer): the transformer to be added
+            name (string): name of the step
+        """
+        steps = self.pipeline_steps
+        position = len(steps) - 1  
+        steps.insert(position, (name, transformer))
+        self.pipeline_steps = steps
+    
+    
+    def remove_step(self, name):
+        """Removes a specific step from the pipeline
+
+        Args:
+            name (string): the name of the step to remove
+        """
+        self.pipeline_steps.pop(name, None)
+    
+    
+    def change_estimator(self, new_estimator):
+        """Changes the current estimator of the pipeline to a different one. 
+        If no estimator is defined a new one will be added.
+
+        Args:
+            new_estimator (model): the new model that should be applied
+        """
+        # Check if there is an 'estimator' step already defined
+        for i, step in enumerate(self.pipeline_steps):
+            if step[0] == 'estimator':
+                # Replace the estimator
+                self.pipeline_steps[i] = ('estimator', new_estimator)
+                break
+        else:
+            # If no 'estimator' step was found, add one
+            self.pipeline_steps.append(('estimator', new_estimator))
+
+
     def run(self):
         """
         Runs the entire pipeline including data loading, preparation, cleaning, 
         fitting the model, evaluation, and storing of prediction.
         """
-        
+        self.pipeline = ImbPipeline(self.pipeline_steps)
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
