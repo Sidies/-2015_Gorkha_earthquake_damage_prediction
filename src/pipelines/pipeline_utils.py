@@ -3,6 +3,7 @@ from src.pipelines.build_pipeline import CustomPipeline
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer, make_column_selector
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
@@ -34,7 +35,7 @@ def add_best_steps(custom_pipeline: CustomPipeline):
     add_binary_encoder_and_minmaxscaler(custom_pipeline)
 
     # add estimator
-    add_knn_classifier(custom_pipeline, 9)
+    apply_knn_classifier(custom_pipeline, 9)
     
     
 def add_remove_feature_transformer(custom_pipeline: CustomPipeline, features_to_remove):
@@ -74,11 +75,15 @@ def add_randomsampling(custom_pipeline: CustomPipeline):
     custom_pipeline.add_new_step(under, 'undersampling')
     
     
-def add_knn_classifier(custom_pipeline: CustomPipeline, k: int):
+def apply_knn_classifier(custom_pipeline: CustomPipeline, k: int):
     customEstimator = KNeighborsClassifier(n_neighbors=k)
     custom_pipeline.change_estimator(customEstimator)
     
     
-def add_lgbm_classifier(custom_pipeline: CustomPipeline):
+def apply_lgbm_classifier(custom_pipeline: CustomPipeline):
     customEstimator = LGBMClassifier()
+    custom_pipeline.change_estimator(new_estimator=customEstimator)
+    
+def apply_randomforest_classifier(custom_pipeline: CustomPipeline):
+    customEstimator = RandomForestClassifier()
     custom_pipeline.change_estimator(new_estimator=customEstimator)
