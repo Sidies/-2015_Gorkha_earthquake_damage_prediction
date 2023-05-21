@@ -39,7 +39,7 @@ class CustomPipeline:
     test_values_building_id = []
     evaluation_scoring = {}
     pipeline_steps = []
-    outlier_handler: pipeline_cleaning.OutlierHandler = pipeline_cleaning.OutlierRemover()
+    outlier_handler: pipeline_cleaning.OutlierHandler
 
     def __init__(
             self,
@@ -51,6 +51,7 @@ class CustomPipeline:
             print_evaluation=True,
             skip_storing_prediction=False,
             use_kfold_shuffle=False,
+            apply_coordinate_mapping=False,
             verbose=1
     ):
         """
@@ -65,6 +66,7 @@ class CustomPipeline:
         :param print_evaluation: Whether to print the evaluation, defaults to True.
         :param skip_storing_prediction: Whether to skip storing of prediction, defaults to False.
         :param use_kfold_shuffle: Whether to use k-fold shuffling in evaluation, defaults to False.
+        :param apply_coordinate_mapping: Whether to apply coordinate mapping to geo_level_1_id
         :param verbose: Verbosity level of the output that describes how much should printed to terminal, defaults to 1.
         """
         self.force_cleaning = force_cleaning
@@ -76,6 +78,10 @@ class CustomPipeline:
         self.skip_storing_prediction = skip_storing_prediction
         self.verbose = verbose
         self.use_kfold_shuffle = use_kfold_shuffle
+        self.apply_coordinate_mapping = apply_coordinate_mapping
+        
+        # add default outlier handler
+        self.outlier_handler = pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3)
         
         # load the data
         if self.verbose >= 1:
@@ -291,9 +297,10 @@ class CustomPipeline:
         # --------- Coordinate Mapping -----------
 
         # map geo-level-1-ids to their corresponding coordinates
-        geo_level_coordinate_mapper = build_features.GeoLevelCoordinateMapperTransformer()
-        X_train = geo_level_coordinate_mapper.fit_transform(X_train, y_train)
-        X_test = geo_level_coordinate_mapper.transform(X_test)
+        if self.apply_coordinate_mapping:
+            geo_level_coordinate_mapper = build_features.GeoLevelCoordinateMapperTransformer()
+            X_train = geo_level_coordinate_mapper.fit_transform(X_train, y_train)
+            X_test = geo_level_coordinate_mapper.transform(X_test)
 
         # ---------- Store Cleaned Dataset ----------
 
