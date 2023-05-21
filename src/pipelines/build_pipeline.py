@@ -82,7 +82,8 @@ class CustomPipeline:
         self.apply_coordinate_mapping = apply_coordinate_mapping
         
         # add default outlier handler
-        self.outlier_handler = pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3)
+        # self.outlier_handler = pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3)
+        self.outlier_handler = pipeline_cleaning.OutlierHandler()
         
         # add default resampler
         self.resampler = sampling_strategies.Sampler()
@@ -160,12 +161,15 @@ class CustomPipeline:
         """
         self.pipeline = ImbPipeline(self.pipeline_steps)
         
+        # Split the data into train and test sets
+        self.X_train, X_test, self.y_train, y_test = train_test_split(self.X_train, self.y_train, test_size=0.2, random_state=42)
+        
         # prepare the data
         if self.verbose >= 1:
             print('preparing data')
         if self.force_cleaning:
             self.clean()
-        
+
         if self.verbose >= 1:
             print('running pipeline')
         self.pipeline.fit(self.X_train, self.y_train)
@@ -179,6 +183,11 @@ class CustomPipeline:
             if self.verbose >= 1:
                 print('storing model and prediction')
             self.store()
+            
+        # ---------- Step 3: Evaluate on the test set ----------
+        y_pred = self.pipeline.predict(X_test)
+        test_mcc = matthews_corrcoef(y_test['damage_grade'], y_pred)
+        print("Trained model MCC Score on unseen data:", test_mcc)
 
 
     def load_and_prep_data(self):
