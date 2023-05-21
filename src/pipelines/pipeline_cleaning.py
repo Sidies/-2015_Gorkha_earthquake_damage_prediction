@@ -9,9 +9,9 @@ class OutlierHandler:
         return X_train, y_train
    
 class OutlierRemover(OutlierHandler): 
-    def __init__(self, cat_threshold=0.2, zscore_value=3):
+    def __init__(self, cat_threshold=0.2, zscore_threshold=3):
         self.cat_threshold = cat_threshold
-        self.zscore_value=zscore_value
+        self.zscore_value=zscore_threshold
     
     def handle_outliers(self, X_train: pd.DataFrame, y_train: pd.DataFrame):
         # remove the has_secondary_use and has_superstructure columns to not run analysis on them
