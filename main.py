@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 
 
 def run_best_performing_pipeline(
-        force_cleaning=False,
+        force_cleaning=True,
         skip_storing_cleaning=False,
         skip_evaluation=False,
         skip_error_evaluation=True,
@@ -42,7 +42,7 @@ def run_best_performing_pipeline(
     pipeline.run()
     
 def run_lgbm_pipeline(
-    force_cleaning=False,
+    force_cleaning=True,
     skip_storing_cleaning=False,
     skip_evaluation=False,
     skip_error_evaluation=True,
@@ -67,7 +67,7 @@ def run_lgbm_pipeline(
     lgbm_pipeline.run()
     
 def run_multiple_pipelines(
-    force_cleaning=False,
+    force_cleaning=True,
     skip_storing_cleaning=False,
     skip_evaluation=False,
     skip_error_evaluation=True,
@@ -102,13 +102,14 @@ def run_multiple_pipelines(
     pipeline.run()
     
 def run_test_pipeline(
-    force_cleaning=False,
+    force_cleaning=True,
     skip_storing_cleaning=False,
     skip_evaluation=False,
     skip_error_evaluation=True,
     skip_feature_evaluation=True,
     print_evaluation=True,
-    skip_storing_prediction=False
+    skip_storing_prediction=False,
+    
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -120,12 +121,13 @@ def run_test_pipeline(
         skip_error_evaluation=skip_error_evaluation,
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
-        skip_storing_prediction=skip_storing_prediction
+        skip_storing_prediction=skip_storing_prediction,
+        apply_coordinate_mapping=False
         )
-    pipeline_utils.add_best_steps(custom_pipeline=test_pipeline)
+    pipeline_utils.add_binary_encoder_and_minmaxscaler(custom_pipeline=test_pipeline)
     
     # try out random sampling and see how it performs on the pipeline
-    pipeline_utils.add_randomsampling(custom_pipeline=test_pipeline)
+    #pipeline_utils.add_randomsampling(custom_pipeline=test_pipeline)
     
     pipeline_utils.apply_lgbm_classifier(test_pipeline)
     test_pipeline.run()
@@ -136,9 +138,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Run data cleaning, preprocessing and model training')
     parser.add_argument(
-        '--force-cleaning',
-        action='store_true',
-        help='pass if you want to force the cleaning step'
+        '--no-force-cleaning',
+        action='store_false',
+        help='pass if you want to stop forcing the cleaning step'
     )
     parser.add_argument(
         '--skip-evaluation',
@@ -170,7 +172,7 @@ if __name__ == '__main__':
     
     if args.pipeline == "best":
         run_best_performing_pipeline(
-            force_cleaning=args.force_cleaning,
+            force_cleaning=args.no_force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
@@ -178,23 +180,17 @@ if __name__ == '__main__':
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
-            force_cleaning=args.force_cleaning,
+            force_cleaning=args.no_force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction
         )
     elif args.pipeline == "test":
-        run_test_pipeline(
-            force_cleaning=args.force_cleaning,
-            skip_evaluation=args.skip_evaluation,
-            skip_error_evaluation=not args.error_evaluation,
-            skip_feature_evaluation=not args.feature_importance,
-            skip_storing_prediction=args.skip_storing_prediction
-        )
+        run_test_pipeline()
     elif args.pipeline == "multiple":
         run_multiple_pipelines(
-            force_cleaning=args.force_cleaning,
+            force_cleaning=args.no_force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
