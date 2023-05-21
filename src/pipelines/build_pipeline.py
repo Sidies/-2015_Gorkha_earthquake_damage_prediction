@@ -19,6 +19,7 @@ from collections import Counter
 from src.data import configuration as config
 from src.features import handle_outliers
 from src.features import build_features
+from src.pipelines import pipeline_cleaning
 
 
 class CustomPipeline:
@@ -38,6 +39,7 @@ class CustomPipeline:
     test_values_building_id = []
     evaluation_scoring = {}
     pipeline_steps = []
+    outlier_handler: pipeline_cleaning.OutlierHandler = pipeline_cleaning.OutlierRemover()
 
     def __init__(
             self,
@@ -79,21 +81,22 @@ class CustomPipeline:
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
-        
-        # prepare the data
-        if self.verbose >= 1:
-            print('preparing data')
-        if self.force_cleaning:
-            self.clean()
 
 
     def add_new_step(self, transformer, name):
-        """Adds a new step to the pipeline at the second to last position.
+        """Adds a new step to the pipeline at the second to last position if the name is not already present.
+        If the name is already present, the step with this name will be replaced.
 
         Args:
             transformer (transformer): the transformer to be added
             name (string): name of the step
         """
+        # Check if there is an step already defined with this name
+        for i, step in enumerate(self.pipeline_steps):
+            if step[0] == name:
+                # Replace the step
+                self.pipeline_steps[i] = (name, transformer)
+                return
         steps = self.pipeline_steps
         position = len(steps) - 1  
         steps.insert(position, (name, transformer))
@@ -126,6 +129,13 @@ class CustomPipeline:
             # If no 'estimator' step was found, add one
             self.pipeline_steps.append(('estimator', new_estimator))
 
+    def apply_outlier_handler(self, handler: pipeline_cleaning.OutlierHandler):
+        """Changes the current outlier handler to a different one.
+
+        Args:
+            handler (pipeline_cleaning.OutlierHandler): The outlier handler that should be used in the cleaning step.
+        """
+        self.outlier_handler = handler
 
     def run(self):
         """
@@ -133,7 +143,13 @@ class CustomPipeline:
         fitting the model, evaluation, and storing of prediction.
         """
         self.pipeline = ImbPipeline(self.pipeline_steps)
-
+        
+        # prepare the data
+        if self.verbose >= 1:
+            print('preparing data')
+        if self.force_cleaning:
+            self.clean()
+        
         if self.verbose >= 1:
             print('running pipeline')
         self.pipeline.fit(self.X_train, self.y_train)
@@ -217,8 +233,6 @@ class CustomPipeline:
 
         categorical_columns = config.categorical_columns
         numerical_columns = config.numerical_columns
-        has_secondary_use_columns = config.has_secondary_use_columns
-        has_superstructure_columns = config.has_superstructure_columns
 
         # update data types
         X_train[categorical_columns] = X_train[categorical_columns].astype('category')
@@ -228,20 +242,8 @@ class CustomPipeline:
         X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
 
         # --------- Outlier Removal -----------
-
-        # remove the has_secondary_use and has_superstructure columns to not run analysis on them
-        new_categorical_columns = list(
-            set(categorical_columns) - set(has_superstructure_columns) - set(has_secondary_use_columns))
-
-        # rows we found to contain outliers which can therefore be dropped
-        row_indizes_to_remove = handle_outliers.get_outlier_rows_as_index(X_train, numerical_columns,
-                                                                            new_categorical_columns, 0.2)
-
-        X_train = build_features.remove_rows_by_integer_index(X_train, row_indizes_to_remove)
-        y_train = build_features.remove_rows_by_integer_index(y_train, row_indizes_to_remove)
-
-        if len(X_train) != len(y_train):
-            print('Error: X_train is not equal length to y_train!')
+        X_train, y_train = self.outlier_handler.handle_outliers(X_train=X_train, y_train=y_train)
+        
 
         # --------- Feature Removal -----------
 

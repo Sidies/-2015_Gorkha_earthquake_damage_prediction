@@ -209,7 +209,7 @@ def find_zscore_outliers_asindizes(list, threshold=3):
     return outlier_indices
 
 
-def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False):
+def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False, z_score_value=3):
     """
     Get the indices of outlier rows in a DataFrame.
 
@@ -230,7 +230,7 @@ def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, thresh
     iqr_indizes = {}
     z_indizes = {}
     for feature in df[numerical_columns]:
-        z_indizes[feature] = find_zscore_outliers_asindizes(df[feature], 2)
+        z_indizes[feature] = find_zscore_outliers_asindizes(df[feature], z_score_value)
         iqr_indizes[feature] = find_outliers_IQR_asindizes(df[feature])
         
         # convert the lists to sets for easy intersection

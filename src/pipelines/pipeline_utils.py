@@ -5,8 +5,10 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer, make_column_selector
+from sklearn.tree import DecisionTreeClassifier
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
+from imblearn.ensemble import EasyEnsembleClassifier, BalancedBaggingClassifier, RUSBoostClassifier
 from category_encoders.binary import BinaryEncoder
 from lightgbm import LGBMClassifier
 
@@ -66,12 +68,12 @@ def add_binary_encoder_and_minmaxscaler(custom_pipeline: CustomPipeline):
     custom_pipeline.add_new_step(trans, 'encoder_and_scaler')
     
     
-def add_randomsampling(custom_pipeline: CustomPipeline):
+def add_randomsampling(custom_pipeline: CustomPipeline, oversampling_strategy='auto', undersampling_strategy='auto'):
     # Define oversampling strategy
-    over = RandomOverSampler(sampling_strategy='auto', random_state=42)
+    over = RandomOverSampler(sampling_strategy=oversampling_strategy, random_state=42)
     custom_pipeline.add_new_step(over, 'oversampling')
     # Define undersampling strategy
-    under = RandomUnderSampler(sampling_strategy='auto', random_state=42)
+    under = RandomUnderSampler(sampling_strategy=undersampling_strategy, random_state=42)
     custom_pipeline.add_new_step(under, 'undersampling')
     
     
@@ -87,3 +89,10 @@ def apply_lgbm_classifier(custom_pipeline: CustomPipeline):
 def apply_randomforest_classifier(custom_pipeline: CustomPipeline):
     customEstimator = RandomForestClassifier()
     custom_pipeline.change_estimator(new_estimator=customEstimator)
+    
+def apply_balancedbaggingclassifier(custom_pipeline: CustomPipeline):
+    model = BalancedBaggingClassifier(
+        base_estimator=DecisionTreeClassifier(), 
+        sampling_strategy='auto', 
+        replacement=False, 
+        random_state=42)
