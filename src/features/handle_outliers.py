@@ -209,7 +209,7 @@ def find_zscore_outliers_asindizes(list, threshold=3):
     return outlier_indices
 
 
-def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, minfo = False, z_score_value=3):
+def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, z_score_value=3):
     """
     Get the indices of outlier rows in a DataFrame.
 
