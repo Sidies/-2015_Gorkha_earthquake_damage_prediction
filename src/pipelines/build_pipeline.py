@@ -255,7 +255,7 @@ class CustomPipeline:
             self.force_cleaning,
             len(self.X_train) <= 0,
             len(self.y_train) <= 0,
-            len(self.test_values),
+            len(self.test_values) <= 0,
             len(self.test_values_building_id) <= 0
         ]
         if self.use_validation_set:
