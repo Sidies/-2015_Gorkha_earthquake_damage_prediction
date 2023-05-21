@@ -74,6 +74,17 @@ class CustomPipeline:
         self.skip_storing_prediction = skip_storing_prediction
         self.verbose = verbose
         self.use_kfold_shuffle = use_kfold_shuffle
+        
+        # load the data
+        if self.verbose >= 1:
+            print('loading data')
+        self.load_and_prep_data()
+        
+        # prepare the data
+        if self.verbose >= 1:
+            print('preparing data')
+        if self.force_cleaning:
+            self.clean()
 
 
     def add_new_step(self, transformer, name):
@@ -122,14 +133,6 @@ class CustomPipeline:
         fitting the model, evaluation, and storing of prediction.
         """
         self.pipeline = ImbPipeline(self.pipeline_steps)
-        if self.verbose >= 1:
-            print('loading data')
-        self.load_and_prep_data()
-        
-        if self.verbose >= 1:
-            print('preparing data')
-        if self.force_cleaning:
-            self.clean()
 
         if self.verbose >= 1:
             print('running pipeline')
