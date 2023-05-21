@@ -12,6 +12,7 @@ from imblearn.ensemble import EasyEnsembleClassifier, BalancedBaggingClassifier,
 from category_encoders.binary import BinaryEncoder
 from lightgbm import LGBMClassifier
 
+
 def add_best_steps(custom_pipeline: CustomPipeline):
     """
     Returns a list of tuples containing transformation steps to be applied in a Pipeline.
@@ -49,9 +50,18 @@ def add_kbinsdiscretizer(custom_pipeline: CustomPipeline, number_of_bins: int):
     discretizer = KBinsDiscretizer(n_bins=number_of_bins, strategy='uniform', encode='ordinal')
     # apply on all columns
     trans = build_features.CustomColumnTransformer([
-            ('bins', discretizer, make_column_selector(dtype_exclude=['category', 'object'])),
-            ('dummy', build_features.DummyTransformer(), make_column_selector(dtype_include=['category', 'object'])) # necessary to keep feature names
-        ], remainder='passthrough')
+        ('bins', discretizer, make_column_selector(
+            pattern='(?!geo-level-1.*)^.*', # ignores geo-level-1 features
+            dtype_exclude=['category', 'object']
+        )),
+        ('dummy_numerical', build_features.DummyTransformer(), make_column_selector(
+            pattern='geo-level-1.*', # apply to geo-level-1 features only
+            dtype_exclude=['category', 'object']
+        )),  # necessary to keep feature names
+        ('dummy_categorical', build_features.DummyTransformer(), make_column_selector(
+            dtype_include=['category', 'object']
+        )) # necessary to keep feature names
+    ], remainder='passthrough')
     custom_pipeline.add_new_step(trans, 'discretizer')
     
     
@@ -85,7 +95,8 @@ def apply_knn_classifier(custom_pipeline: CustomPipeline, k: int):
 def apply_lgbm_classifier(custom_pipeline: CustomPipeline):
     customEstimator = LGBMClassifier()
     custom_pipeline.change_estimator(new_estimator=customEstimator)
-    
+
+
 def apply_randomforest_classifier(custom_pipeline: CustomPipeline):
     customEstimator = RandomForestClassifier()
     custom_pipeline.change_estimator(new_estimator=customEstimator)

@@ -207,6 +207,7 @@ class OneHotDecoderTransformer(BaseEstimator, TransformerMixin):
 
         return X_new
 
+
 class RemoveFeatureTransformer(BaseEstimator, TransformerMixin):
     """
     Transformer that removes features from a given dataset. This is done
@@ -270,6 +271,132 @@ class RemoveFeatureTransformer(BaseEstimator, TransformerMixin):
                 features_to_keep.remove(feature)
 
         return X[features_to_keep]
+
+
+class GeoLevelCoordinateMapperTransformer(BaseEstimator, TransformerMixin):
+    """
+    Maps geo-level-ids to their corresponding latitude/longitude coordinates.
+    """
+
+    def fit(self, X, y=None):
+        """
+        Returns this transformer object.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input samples.
+
+        y :  array-like of shape (n_samples,) or (n_samples, n_outputs), \
+                default=None
+            Target values (None for unsupervised transformations).
+
+        Returns
+        -------
+        self : DropFeatureTransformer
+            This object.
+        """
+        return self
+
+    def transform(self, X):
+        """
+        Maps geo-level-ids to their corresponding latitude/longitude coordinates.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Input samples.
+
+        Returns
+        -------
+        X : ndarray array of shape (n_samples, n_features)
+            Input samples with geo-level-1-ids mapped to corresponding coordiantes.
+        """
+        X_new = X.copy()
+
+        district_mapping = {
+            0: 'Syangja',
+            1: 'Kaski',
+            2: 'Baglung',
+            3: 'Bhaktapur',
+            4: 'Ramechhap',
+            5: 'Parbat',
+            6: 'Kavrepalanchok',
+            7: 'Nuwakot',
+            8: 'Gorkha',
+            9: 'Chitwan',
+            10: 'Dhading',
+            11: 'Lalitpur',
+            12: 'Khotang',
+            13: 'Okhaldhunga',
+            14: 'Gulmi',
+            15: 'Bhojpur',
+            16: 'Solukhumbu',
+            17: 'Sindhupalchok',
+            18: 'Rasuwa',
+            19: 'Myagdi',
+            20: 'Sindhuli',
+            21: 'Dolakha',
+            22: 'Tanahu',
+            23: 'Dhankuta',
+            24: 'Sankhuwasabha',
+            25: 'Lamjung',
+            26: 'Makwanpur',
+            27: 'Kathmandu',
+            28: 'Nawalparasi',
+            29: 'Arghakhanchi',
+            30: 'Palpa'
+        }
+
+        X_new['geo_level_1_id'] = X['geo_level_1_id'].replace(district_mapping)
+
+        coordinate_mapping = {
+            'Arghakhanchi': [28.000833, 83.246667],
+            'Baglung': [28.266667, 83.6],
+            'Bhaktapur': [27.672222, 85.427778],
+            'Bhojpur': [27.1725, 87.048056],
+            'Chitwan': [27.583333, 84.5],
+            'Dhading': [27.933253, 84.865694],
+            'Dhankuta': [26.981389, 87.343333],
+            'Dolakha': [27.732542, 86.178946],
+            'Gorkha': [28.283333, 84.683333],
+            'Gulmi': [28.066667, 83.25],
+            'Kaski': [28.3333, 84],
+            'Kathmandu': [27.7, 85.3],
+            'Kavrepalanchok': [27.530719, 85.537105],
+            'Khotang': [27.2, 86.783333],
+            'Lalitpur': [27.666667, 85.316667],
+            'Lamjung': [28.226365, 84.376373],
+            'Makwanpur': [27.416667, 85.033333],
+            'Myagdi': [28.528294, 83.476009],
+            'Nawalparasi': [27.533333, 83.666667],
+            'Nuwakot': [27.878689, 85.138722],
+            'Okhaldhunga': [27.316667, 86.5],
+            'Palpa': [27.8666, 83.55],
+            'Parbat': [28.2213, 83.7122],
+            'Ramechhap': [27.400429, 86.027412],
+            'Rasuwa': [28.116667, 85.283333],
+            'Sankhuwasabha': [27.366667, 87.216667],
+            'Sindhuli': [27.252, 85.97],
+            'Sindhupalchok': [27.951295, 85.69572],
+            'Solukhumbu': [27.70242, 86.677237],
+            'Syangja': [28.096944, 83.821944],
+            'Tanahu': [27.917373, 84.193726]
+        }
+
+        X_new['geo_level_1_latitude'] = 0
+        X_new['geo_level_1_longitude'] = 0
+
+        def map_coordinates(row):
+            coordinates = coordinate_mapping[row['geo_level_1_id']]
+            row['geo_level_1_latitude'] = coordinates[0]
+            row['geo_level_1_longitude'] = coordinates[1]
+            return row
+
+        X_new = X_new.apply(map_coordinates, axis=1)
+        X_new = X_new.drop(columns='geo_level_1_id')
+
+        return X_new
 
 
 class DummyTransformer(BaseEstimator, TransformerMixin):

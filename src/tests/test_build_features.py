@@ -85,7 +85,7 @@ class TestBuildFeatures(unittest.TestCase):
         new_df = OneHotDecoderTransformer(one_hot_features=['a', 'b'], new_feature='feature').fit_transform(df)
 
         assert new_df.equals(test_df)
-        
+
     def test_CombineFeatureTransformer(self):
         df = pd.DataFrame({
             'first': ['Dirk', 'Kobe', 'Tim', 'Lebron'],
@@ -101,7 +101,7 @@ class TestBuildFeatures(unittest.TestCase):
         new_df = CombineFeatureTransformer('first', 'last').fit_transform(df)
 
         assert new_df.equals(test_df), f"Expected the dataframes to match but got: \n {new_df}"
-        
+
         df = pd.DataFrame({
             'a': [1, 0, 0, 0, 1],
             'b': [0, 1, 1, 0, 1],
@@ -112,11 +112,26 @@ class TestBuildFeatures(unittest.TestCase):
             'b': [0, 1, 1, 0, 1],
             'a b': ['1 0', '0 1', '0 1', '0 0', '1 1'],
         })
-        
+
         new_df = CombineFeatureTransformer('a', 'b').fit_transform(df)
 
         assert new_df.equals(test_df), f"Expected the dataframes to match but got: \n {new_df} instead of \n {test_df}"
-        
+
+    def test_GeoLevelCoordinateMapperTransformer(self):
+        df = pd.DataFrame({
+            'geo_level_1_id': [29, 2, 3],
+            'value': [1, 1, 1],
+        })
+
+        test_df = pd.DataFrame({
+            'value': [1, 1, 1],
+            'geo_level_1_latitude': [28.000833, 28.266667, 27.672222],
+            'geo_level_1_longitude': [83.246667, 83.6, 85.427778],
+        })
+
+        new_df = GeoLevelCoordinateMapperTransformer().fit_transform(df)
+
+        assert new_df.equals(test_df), f"Expected the dataframes to match but got: \n {new_df}"
 
 
 if __name__ == '__main__':

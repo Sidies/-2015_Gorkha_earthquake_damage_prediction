@@ -288,6 +288,13 @@ class CustomPipeline:
         X_train = onehot_decoder_secondary_use.fit_transform(X_train, y_train)
         X_test = onehot_decoder_secondary_use.transform(X_test)
 
+        # --------- Coordinate Mapping -----------
+
+        # map geo-level-1-ids to their corresponding coordinates
+        geo_level_coordinate_mapper = build_features.GeoLevelCoordinateMapperTransformer()
+        X_train = geo_level_coordinate_mapper.fit_transform(X_train, y_train)
+        X_test = geo_level_coordinate_mapper.transform(X_test)
+
         # ---------- Store Cleaned Dataset ----------
 
         if not self.skip_storing_cleaning:
