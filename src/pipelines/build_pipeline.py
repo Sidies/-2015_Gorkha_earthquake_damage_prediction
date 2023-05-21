@@ -11,7 +11,7 @@ from copy import deepcopy
 from joblib import dump
 from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, make_scorer,\
+from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, make_scorer, \
     matthews_corrcoef
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
@@ -21,6 +21,7 @@ from src.features import handle_outliers
 from src.features import build_features
 from src.pipelines import pipeline_cleaning
 from src.features import sampling_strategies
+
 
 class CustomPipeline:
     """
@@ -35,6 +36,8 @@ class CustomPipeline:
     test_values = pd.DataFrame()
     X_train_raw = pd.DataFrame()
     y_train_raw = pd.DataFrame()
+    X_val = pd.DataFrame()
+    y_val = pd.DataFrame()
     test_values_raw = pd.DataFrame()
     test_values_building_id = []
     evaluation_scoring = {}
@@ -51,6 +54,7 @@ class CustomPipeline:
             skip_feature_evaluation=True,
             print_evaluation=True,
             skip_storing_prediction=False,
+            use_validation_set=False,
             use_kfold_shuffle=False,
             apply_coordinate_mapping=False,
             verbose=1
@@ -78,21 +82,21 @@ class CustomPipeline:
         self.print_evaluation = print_evaluation
         self.skip_storing_prediction = skip_storing_prediction
         self.verbose = verbose
+        self.use_validation_set = use_validation_set
         self.use_kfold_shuffle = use_kfold_shuffle
         self.apply_coordinate_mapping = apply_coordinate_mapping
-        
+
         # add default outlier handler
         # self.outlier_handler = pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3)
         self.outlier_handler = pipeline_cleaning.OutlierHandler()
-        
+
         # add default resampler
         self.resampler = sampling_strategies.Sampler()
-        
+
         # load the data
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
-
 
     def add_new_step(self, transformer, name):
         """Adds a new step to the pipeline at the second to last position if the name is not already present.
@@ -109,11 +113,10 @@ class CustomPipeline:
                 self.pipeline_steps[i] = (name, transformer)
                 return
         steps = self.pipeline_steps
-        position = len(steps) - 1  
+        position = len(steps) - 1
         steps.insert(position, (name, transformer))
         self.pipeline_steps = steps
-    
-    
+
     def remove_step(self, name):
         """Removes a specific step from the pipeline
 
@@ -121,8 +124,7 @@ class CustomPipeline:
             name (string): the name of the step to remove
         """
         self.pipeline_steps.pop(name, None)
-    
-    
+
     def change_estimator(self, new_estimator):
         """Changes the current estimator of the pipeline to a different one. 
         If no estimator is defined a new one will be added.
@@ -147,23 +149,34 @@ class CustomPipeline:
             handler (pipeline_cleaning.OutlierHandler): The outlier handler that should be used in the cleaning step.
         """
         self.outlier_handler = handler
-        
-    
+
     def apply_sampler(self, resampler: sampling_strategies.Sampler):
-        
+
         self.resampler = resampler
-    
-    
+
+    def update_datatypes(self):
+        categorical_columns = list(set(self.X_train.columns) - set(config.numerical_columns))
+        numerical_columns = list(set(self.X_train.columns) - set(config.categorical_columns))
+
+        self.X_train[categorical_columns] = self.X_train[categorical_columns].astype('category')
+        self.X_train[numerical_columns] = self.X_train[numerical_columns].astype(np.float64)
+        self.y_train = self.y_train.astype('category')
+
+        self.test_values[categorical_columns] = self.test_values[categorical_columns].astype('category')
+        self.test_values[numerical_columns] = self.test_values[numerical_columns].astype(np.float64)
+
+        if self.use_validation_set:
+            self.X_val[categorical_columns] = self.X_val[categorical_columns].astype('category')
+            self.X_val[numerical_columns] = self.X_val[numerical_columns].astype(np.float64)
+            self.y_val = self.y_val.astype('category')
+
     def run(self):
         """
         Runs the entire pipeline including data loading, preparation, cleaning, 
         fitting the model, evaluation, and storing of prediction.
         """
         self.pipeline = ImbPipeline(self.pipeline_steps)
-        
-        # Split the data into train and test sets
-        self.X_train, X_test, self.y_train, y_test = train_test_split(self.X_train, self.y_train, test_size=0.2, random_state=42)
-        
+
         # prepare the data
         if self.verbose >= 1:
             print('preparing data')
@@ -183,12 +196,6 @@ class CustomPipeline:
             if self.verbose >= 1:
                 print('storing model and prediction')
             self.store()
-            
-        # ---------- Step 3: Evaluate on the test set ----------
-        y_pred = self.pipeline.predict(X_test)
-        test_mcc = matthews_corrcoef(y_test['damage_grade'], y_pred)
-        print("Trained model MCC Score on unseen data:", test_mcc)
-
 
     def load_and_prep_data(self):
         """
@@ -197,78 +204,97 @@ class CustomPipeline:
         """
         self.X_train = pd.DataFrame()
         self.y_train = pd.DataFrame()
+        self.X_val = pd.DataFrame()
+        self.y_val = pd.DataFrame()
         self.test_values = pd.DataFrame()
         self.test_values_building_id = []
         # loading the raw uncleaned data
         self.X_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_values.csv'))
         self.y_train_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/train_labels.csv')).squeeze()
         self.test_values_raw = pd.read_csv(os.path.join(config.ROOT_DIR, 'data/raw/test_values.csv'))
-        
+
         if not self.force_cleaning:
             # if the force cleaning flag is not set, the cleaned and prepared data from the interim folder is loaded
             test_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'))
             train_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
             target_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
             test_values_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
+            if self.use_validation_set:
+                validation_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_val.csv'))
+                validation_target_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_val.csv'))
 
-            # in the following it will be checked whether the paths contain files and the files are loaded
-            # the data types will also be updated
-            if test_values_path.is_file() and train_values_path.is_file() and target_values_path.is_file() and test_values_building_id_path.is_file():
+            paths_to_check = [
+                test_values_path,
+                train_values_path,
+                target_values_path,
+                test_values_building_id_path
+            ]
+            if self.use_validation_set:
+                paths_to_check.append(validation_values_path)
+                paths_to_check.append(validation_target_values_path)
+
+            # check whether the paths point to files
+            file_paths_valid = True
+            for path in paths_to_check:
+                if not path.is_file():
+                    file_paths_valid = False
+
+            if file_paths_valid:
                 self.test_values = pd.read_csv(test_values_path)
                 self.X_train = pd.read_csv(train_values_path)
                 self.y_train = pd.read_csv(target_values_path).squeeze()
                 self.test_values_building_id = pd.read_csv(test_values_building_id_path).squeeze("columns")
+                if self.use_validation_set:
+                    self.X_val = pd.read_csv(validation_values_path)
+                    self.y_val = pd.read_csv(validation_target_values_path).squeeze()
 
-                # update data types
-                categorical_columns = list(set(self.X_train.columns) - set(config.numerical_columns))
-                numerical_columns = list(set(self.X_train.columns) - set(config.categorical_columns))
-                self.X_train[categorical_columns] = self.X_train[categorical_columns].astype('category')
-                self.X_train[numerical_columns] = self.X_train[numerical_columns].astype(np.float64)
-                self.y_train = self.y_train.astype('category')
-                self.test_values[categorical_columns] = self.test_values[categorical_columns].astype('category')
-                self.test_values[numerical_columns] = self.test_values[numerical_columns].astype(np.float64)
-        
-        # if there is an issue with loading the prepared data or the data is not present the raw data will be used instead
-        # the cleaning function is then triggered
-        if len(self.X_train) <= 0 or len(self.y_train) <= 0 or len(self.test_values) <= 0 or len(
-                self.test_values_building_id) <= 0 or self.force_cleaning:
+                self.update_datatypes()
+
+        # check for conditions that make a cleaning necessary
+        conditions_for_cleaning = [
+            self.force_cleaning,
+            len(self.X_train) <= 0,
+            len(self.y_train) <= 0,
+            len(self.test_values),
+            len(self.test_values_building_id) <= 0
+        ]
+        if self.use_validation_set:
+            conditions_for_cleaning.append(len(self.X_val) <= 0)
+            conditions_for_cleaning.append(len(self.y_val) <= 0)
+
+        if any(conditions_for_cleaning):
             self.force_cleaning = True
             self.X_train = self.X_train_raw
             self.y_train = self.y_train_raw
             self.test_values = self.test_values_raw
-            
+            if self.use_validation_set:
+                self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
+                    self.X_train,
+                    self.y_train,
+                    test_size=0.1,
+                    stratify=self.y_train['damage_grade']
+                )
 
     def clean(self):
         """
         Cleans the data by removing outliers, unnecessary features, and doing one-hot decoding. 
         It also stores the cleaned data if not instructed otherwise.
         """
-        
-        X_test = self.test_values
-        X_train = self.X_train
-        y_train = self.y_train
 
         # store building_id of test set as it is required in the submission format of the prediction
-        X_test_building_id = X_test['building_id']
+        self.test_values_building_id = self.test_values['building_id']
 
         # remove building_id from target
-        X_train = pd.merge(X_train, y_train)
-        y_train = X_train['damage_grade']
-        X_train = X_train.drop(columns=['damage_grade'])
+        self.X_train = pd.merge(self.X_train, self.y_train)
+        self.y_train = self.X_train['damage_grade']
+        self.X_train = self.X_train.drop(columns=['damage_grade'])
 
-        categorical_columns = config.categorical_columns
-        numerical_columns = config.numerical_columns
-
-        # update data types
-        X_train[categorical_columns] = X_train[categorical_columns].astype('category')
-        X_train[numerical_columns] = X_train[numerical_columns].astype(np.float64)
-        y_train = y_train.astype('category')
-        X_test[categorical_columns] = X_test[categorical_columns].astype('category')
-        X_test[numerical_columns] = X_test[numerical_columns].astype(np.float64)
+        # update datatypes of features (categorical/numerical)
+        self.update_datatypes()
 
         # --------- Outlier Removal -----------
-        X_train, y_train = self.outlier_handler.handle_outliers(X_train=X_train, y_train=y_train)
-        
+
+        self.X_train, self.y_train = self.outlier_handler.handle_outliers(X_train=self.X_train, y_train=self.y_train)
 
         # --------- Feature Removal -----------
 
@@ -288,8 +314,10 @@ class CustomPipeline:
         ]
 
         feature_remover = build_features.RemoveFeatureTransformer(features_to_drop=columns_to_remove)
-        X_train = feature_remover.fit_transform(X_train, y_train)
-        X_test = feature_remover.transform(X_test)
+        self.X_train = feature_remover.fit_transform(self.X_train, self.y_train)
+        self.test_values = feature_remover.transform(self.test_values)
+        if self.use_validation_set:
+            self.X_val = feature_remover.transform(self.X_val)
 
         # --------- One-Hot Decoding -----------
 
@@ -310,34 +338,37 @@ class CustomPipeline:
             new_feature='has_secondary_use',
             default='none'
         )
-        X_train = onehot_decoder_secondary_use.fit_transform(X_train, y_train)
-        X_test = onehot_decoder_secondary_use.transform(X_test)
+        self.X_train = onehot_decoder_secondary_use.fit_transform(self.X_train, self.y_train)
+        self.test_values = onehot_decoder_secondary_use.transform(self.test_values)
+        if self.use_validation_set:
+            self.X_val = onehot_decoder_secondary_use.transform(self.X_val)
 
         # --------- Coordinate Mapping -----------
 
         # map geo-level-1-ids to their corresponding coordinates
         if self.apply_coordinate_mapping:
             geo_level_coordinate_mapper = build_features.GeoLevelCoordinateMapperTransformer()
-            X_train = geo_level_coordinate_mapper.fit_transform(X_train, y_train)
-            X_test = geo_level_coordinate_mapper.transform(X_test)
-            
+            self.X_train = geo_level_coordinate_mapper.fit_transform(self.X_train, self.y_train)
+            self.test_values = geo_level_coordinate_mapper.transform(self.test_values)
+            if self.use_validation_set:
+                self.X_val = geo_level_coordinate_mapper.transform(self.X_val)
+
         # --------- Sampling ----------------------
-        X_train, y_train = self.resampler.apply_sampling(X_train=X_train, y_train=y_train)
+
+        self.X_train, self.y_train = self.resampler.apply_sampling(X_train=self.X_train, y_train=self.y_train)
 
         # ---------- Store Cleaned Dataset ----------
 
         if not self.skip_storing_cleaning:
             print('storing cleaned data')
-            X_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'), index=False)
-            y_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'), index=False)
-            X_test.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'), index=False)
-            X_test_building_id.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'), index=False)
-
-        self.X_train = X_train
-        self.y_train = y_train
-        self.test_values = X_test
-        self.test_values_building_id = X_test_building_id
-    
+            self.X_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'), index=False)
+            self.y_train.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'), index=False)
+            self.test_values.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test.csv'), index=False)
+            self.test_values_building_id.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'),
+                                                index=False)
+            if self.use_validation_set:
+                self.X_val.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_val.csv'), index=False)
+                self.y_val.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_val.csv'), index=False)
 
     def evaluate(self):
         """
@@ -357,7 +388,7 @@ class CustomPipeline:
             'mcc': make_scorer(matthews_corrcoef)
         }
 
-        performance_scores = cross_validate(
+        cv_performance_scores = cross_validate(
             pipeline,
             self.X_train,
             self.y_train,
@@ -365,14 +396,38 @@ class CustomPipeline:
             cv=StratifiedKFold(n_splits=5, shuffle=self.use_kfold_shuffle)
         )
 
-        if self.print_evaluation:
-            for metric in performance_scores:
-                if self.verbose >= 1:
-                    print('    ' + metric + ':', performance_scores[metric].mean())
-                else:
-                    print(metric + ':', performance_scores[metric].mean())
+        # change prefix of metrics to be 'cv' instead of 'test'
+        for metric in list(cv_performance_scores.keys()):
+            if metric.startswith('test'):
+                values = cv_performance_scores[metric]
+                cv_performance_scores.pop(metric)
+                cv_performance_scores[metric.replace('test', 'cv', 1)] = values
 
-        scores.update(performance_scores)
+        scores.update(cv_performance_scores)
+
+        validation_performance_scores = {}
+        if self.use_validation_set:
+            y_pred = self.pipeline.predict(self.X_val)
+            validation_performance_scores['validation_accuracy'] = [accuracy_score(self.y_val['damage_grade'], y_pred)]
+            validation_performance_scores['validation_f1-score'] = [
+                f1_score(self.y_val['damage_grade'], y_pred, average='macro')]
+            validation_performance_scores['validation_mcc'] = [matthews_corrcoef(self.y_val['damage_grade'], y_pred)]
+
+        scores.update(validation_performance_scores)
+
+        if self.print_evaluation:
+            for metric, values in {**cv_performance_scores, **validation_performance_scores}.items():
+                # output = metric + ': ' \
+                #         + np.array2string(np.mean(values), precision=4) + ' / ' \
+                #         + np.array2string(np.std(values), precision=4) + ' / ' \
+                #         + str(len(values)) + ' (mean/std/k)'
+                output = metric + ': ' \
+                         + np.array2string(np.mean(values), precision=4) + ' [std=' \
+                         + np.array2string(np.std(values), precision=4) + ']'
+                if self.verbose >= 1:
+                    print('    ' + output)
+                else:
+                    print(output)
 
         # ---------- Error Evaluation ----------
         if not self.skip_error_evaluation:
@@ -428,7 +483,6 @@ class CustomPipeline:
             else:
                 if self.print_evaluation:
                     print('no feature importances available')
-
 
         # safe to local class variable
         self.evaluation_scoring = scores

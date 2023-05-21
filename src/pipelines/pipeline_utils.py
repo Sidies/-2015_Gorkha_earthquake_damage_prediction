@@ -70,6 +70,7 @@ def add_binary_encoder_and_minmaxscaler(custom_pipeline: CustomPipeline):
 
     # scales numerical features
     scaler = MinMaxScaler()
+
     trans = build_features.CustomColumnTransformer([
             ('encoder', encoder, make_column_selector(dtype_include=['category', 'object'])),
             ('scaler', scaler, make_column_selector(dtype_exclude=['category', 'object']))

@@ -14,7 +14,8 @@ def run_best_performing_pipeline(
         skip_error_evaluation=True,
         skip_feature_evaluation=True,
         print_evaluation=True,
-        skip_storing_prediction=False
+        skip_storing_prediction=False,
+        use_validation_set=False
 ):
     """
     Initializes and starts a sklearn pipeline with the steps from the 
@@ -28,6 +29,7 @@ def run_best_performing_pipeline(
         skip_feature_evaluation (bool, optional): Whether the feature evaluation step should be performed. Defaults to True.
         print_evaluation (bool, optional): Whether the evaluation results should be printed. Defaults to True.
         skip_storing_prediction (bool, optional): Whether the prediction results should be printed. Defaults to False.
+        use_validation_set (bool, optional): Whether to split the data into training and validation set for evaluation. Defaults to False.
     """
     pipeline = CustomPipeline(
         force_cleaning=force_cleaning,
@@ -36,7 +38,8 @@ def run_best_performing_pipeline(
         skip_error_evaluation=skip_error_evaluation,
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
-        skip_storing_prediction=skip_storing_prediction
+        skip_storing_prediction=skip_storing_prediction,
+        use_validation_set=use_validation_set
     )
     pipeline_utils.add_best_steps(pipeline)
     pipeline.run()
@@ -48,7 +51,8 @@ def run_lgbm_pipeline(
     skip_error_evaluation=True,
     skip_feature_evaluation=True,
     print_evaluation=True,
-    skip_storing_prediction=False
+    skip_storing_prediction=False,
+    use_validation_set=False,
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -60,7 +64,8 @@ def run_lgbm_pipeline(
         skip_error_evaluation=skip_error_evaluation,
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
-        skip_storing_prediction=skip_storing_prediction
+        skip_storing_prediction=skip_storing_prediction,
+        use_validation_set=use_validation_set
         )
     pipeline_utils.add_best_steps(custom_pipeline=lgbm_pipeline)
     pipeline_utils.apply_lgbm_classifier(lgbm_pipeline)
@@ -73,7 +78,8 @@ def run_multiple_pipelines(
     skip_error_evaluation=True,
     skip_feature_evaluation=True,
     print_evaluation=True,
-    skip_storing_prediction=False
+    skip_storing_prediction=False,
+    use_validation_set=False
 ):
     """
     Initializes and starts multiple pipelines with different classifiers
@@ -85,7 +91,8 @@ def run_multiple_pipelines(
         skip_error_evaluation=skip_error_evaluation,
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
-        skip_storing_prediction=skip_storing_prediction
+        skip_storing_prediction=skip_storing_prediction,
+        use_validation_set=use_validation_set
     )
     n = 3
     
@@ -109,7 +116,7 @@ def run_test_pipeline(
     skip_feature_evaluation=True,
     print_evaluation=True,
     skip_storing_prediction=False,
-    
+    use_validation_set=False
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -122,6 +129,7 @@ def run_test_pipeline(
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
+        use_validation_set=use_validation_set,
         apply_coordinate_mapping=False
         )
     pipeline_utils.add_binary_encoder_and_minmaxscaler(custom_pipeline=test_pipeline)
@@ -141,6 +149,11 @@ if __name__ == '__main__':
         '--no-force-cleaning',
         action='store_false',
         help='pass if you want to stop forcing the cleaning step'
+    )
+    parser.add_argument(
+        '--validation-set',
+        action='store_true',
+        help='pass if you want to split the data into train and validation set'
     )
     parser.add_argument(
         '--skip-evaluation',
@@ -176,7 +189,8 @@ if __name__ == '__main__':
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
-            skip_storing_prediction=args.skip_storing_prediction
+            skip_storing_prediction=args.skip_storing_prediction,
+            use_validation_set=args.validation_set
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
@@ -184,7 +198,8 @@ if __name__ == '__main__':
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
-            skip_storing_prediction=args.skip_storing_prediction
+            skip_storing_prediction=args.skip_storing_prediction,
+            use_validation_set=args.validation_set
         )
     elif args.pipeline == "test":
         run_test_pipeline()
@@ -194,7 +209,8 @@ if __name__ == '__main__':
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
-            skip_storing_prediction=args.skip_storing_prediction
+            skip_storing_prediction=args.skip_storing_prediction,
+            use_validation_set=args.validation_set
         )
     else:
         print("Invalid pipeline specified.")
