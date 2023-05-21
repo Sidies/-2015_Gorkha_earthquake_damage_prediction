@@ -102,6 +102,44 @@ def remove_rows_by_integer_index(df, integerList):
     return df.iloc[idx]     
 
 
+def impute_rows_by_integer_index(df, integerList):
+    # Create a copy of df to avoid modifying the original dataframe
+    df_copy = df.copy()
+
+    # Iterate over integerList
+    for idx in integerList:
+        # Iterate over columns of the dataframe
+        for col in df.columns:
+            # Check if the column is numerical
+            if np.issubdtype(df[col].dtype, np.number):
+                # Replace outlier value with mean of non-outlier values
+                df_copy.loc[idx, col] = df.loc[~df.index.isin(integerList), col].mean()
+            else:
+                # Replace outlier value with mode of non-outlier values
+                df_copy.loc[idx, col] = df.loc[~df.index.isin(integerList), col].mode()[0]
+    return df_copy
+
+
+def cap_rows_by_integer_index(df, integerList, min_val=-1.96, max_val=1.96):
+    # Create a copy of df to avoid modifying the original dataframe
+    df_copy = df.copy()
+
+    # Iterate over integerList
+    for idx in integerList:
+        # Iterate over columns of the dataframe
+        for col in df.columns:
+            # Check if the column is numerical
+            if np.issubdtype(df[col].dtype, np.number):
+                # Cap the outlier values with min_val and max_val
+                df_copy.loc[idx, col] = np.where(df_copy.loc[idx, col] > max_val, max_val, df_copy.loc[idx, col])
+                df_copy.loc[idx, col] = np.where(df_copy.loc[idx, col] < min_val, min_val, df_copy.loc[idx, col])
+            else:
+                # For categorical columns, replace outlier value with mode of non-outlier values
+                df_copy.loc[idx, col] = df.loc[~df.index.isin(integerList), col].mode()[0]
+    return df_copy
+
+
+
 class OneHotDecoderTransformer(BaseEstimator, TransformerMixin):
     """
     Transforms a dataframe into one-hot encoding and then decodes it to get

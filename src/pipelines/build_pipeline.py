@@ -20,7 +20,7 @@ from src.data import configuration as config
 from src.features import handle_outliers
 from src.features import build_features
 from src.pipelines import pipeline_cleaning
-
+from src.features import sampling_strategies
 
 class CustomPipeline:
     """
@@ -40,10 +40,11 @@ class CustomPipeline:
     evaluation_scoring = {}
     pipeline_steps = []
     outlier_handler: pipeline_cleaning.OutlierHandler
+    resampler: sampling_strategies.Sampler
 
     def __init__(
             self,
-            force_cleaning=False,
+            force_cleaning=True,
             skip_storing_cleaning=False,
             skip_evaluation=False,
             skip_error_evaluation=True,
@@ -82,6 +83,9 @@ class CustomPipeline:
         
         # add default outlier handler
         self.outlier_handler = pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3)
+        
+        # add default resampler
+        self.resampler = sampling_strategies.Sampler()
         
         # load the data
         if self.verbose >= 1:
@@ -142,7 +146,13 @@ class CustomPipeline:
             handler (pipeline_cleaning.OutlierHandler): The outlier handler that should be used in the cleaning step.
         """
         self.outlier_handler = handler
-
+        
+    
+    def apply_sampler(self, resampler: sampling_strategies.Sampler):
+        
+        self.resampler = resampler
+    
+    
     def run(self):
         """
         Runs the entire pipeline including data loading, preparation, cleaning, 
@@ -301,6 +311,9 @@ class CustomPipeline:
             geo_level_coordinate_mapper = build_features.GeoLevelCoordinateMapperTransformer()
             X_train = geo_level_coordinate_mapper.fit_transform(X_train, y_train)
             X_test = geo_level_coordinate_mapper.transform(X_test)
+            
+        # --------- Sampling ----------------------
+        X_train, y_train = self.resampler.apply_sampling(X_train=X_train, y_train=y_train)
 
         # ---------- Store Cleaned Dataset ----------
 
@@ -315,27 +328,6 @@ class CustomPipeline:
         self.y_train = y_train
         self.test_values = X_test
         self.test_values_building_id = X_test_building_id
-
-
-    def resample_data(self):
-        # Check the class distribution before resampling
-        print('Class distribution before resampling:', Counter(self.y_train['damage_grade']))
-
-        # Create an instance of RandomOverSampler for oversampling
-        over_sampler = RandomOverSampler(sampling_strategy='auto', random_state=42)
-
-        # Create an instance of RandomUnderSampler for undersampling
-        under_sampler = RandomUnderSampler(sampling_strategy='auto', random_state=42)
-
-        # Apply the resampling on the training set
-        X_train_resampled, y_train_resampled = over_sampler.fit_resample(self.X_train, self.y_train['damage_grade'])
-         
-         # Check the class distribution between resampling
-        print('Class distribution between resampling:', Counter(y_train_resampled))
-        X_train_resampled, y_train_resampled = under_sampler.fit_resample(X_train_resampled, y_train_resampled)
-        
-        # Check the class distribution after resampling
-        print('Class distribution after resampling:', Counter(y_train_resampled))
     
 
     def evaluate(self):
