@@ -42,8 +42,6 @@ class CustomPipeline:
     test_values_building_id = []
     evaluation_scoring = {}
     pipeline_steps = []
-    outlier_handler: pipeline_cleaning.OutlierHandler
-    resampler: sampling_strategies.Sampler
 
     def __init__(
             self,
@@ -86,36 +84,35 @@ class CustomPipeline:
         self.use_kfold_shuffle = use_kfold_shuffle
         self.apply_coordinate_mapping = apply_coordinate_mapping
 
-        # add default outlier handler
-        # self.outlier_handler = pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3)
-        self.outlier_handler = pipeline_cleaning.OutlierHandler()
-
-        # add default resampler
-        self.resampler = sampling_strategies.Sampler()
-
         # load the data
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
 
     def add_new_step(self, transformer, name):
-        """Adds a new step to the pipeline at the second to last position if the name is not already present.
-        If the name is already present, the step with this name will be replaced.
+        """
+        Adds a new step to the pipeline before the 'estimator' step, if it
+        exists. If the name is already present, the corresponding
+        transformer will be replaced.
 
         Args:
             transformer (transformer): the transformer to be added
             name (string): name of the step
         """
-        # Check if there is an step already defined with this name
-        for i, step in enumerate(self.pipeline_steps):
-            if step[0] == name:
-                # Replace the step
-                self.pipeline_steps[i] = (name, transformer)
+        # initialize steps if empty
+        if len(self.pipeline_steps) == 0:
+            self.pipeline_steps = [(name, transformer)]
+            return
+
+        # insert step before estimator or replace if step already exists
+        insertion_index = len(self.pipeline_steps)  # insert at end of list by default
+        for i, (step_name, _) in enumerate(self.pipeline_steps):
+            if step_name == 'estimator':
+                insertion_index = i - 1
+            if step_name == name:
+                self.pipeline_steps[i] = (name, transformer)  # replace the step
                 return
-        steps = self.pipeline_steps
-        position = len(steps) - 1
-        steps.insert(position, (name, transformer))
-        self.pipeline_steps = steps
+        self.pipeline_steps.insert(insertion_index, (name, transformer))
 
     def remove_step(self, name):
         """Removes a specific step from the pipeline
@@ -141,18 +138,6 @@ class CustomPipeline:
         else:
             # If no 'estimator' step was found, add one
             self.pipeline_steps.append(('estimator', new_estimator))
-
-    def apply_outlier_handler(self, handler: pipeline_cleaning.OutlierHandler):
-        """Changes the current outlier handler to a different one.
-
-        Args:
-            handler (pipeline_cleaning.OutlierHandler): The outlier handler that should be used in the cleaning step.
-        """
-        self.outlier_handler = handler
-
-    def apply_sampler(self, resampler: sampling_strategies.Sampler):
-
-        self.resampler = resampler
 
     def update_datatypes(self):
         categorical_columns = list(set(self.X_train.columns) - set(config.numerical_columns))
@@ -277,7 +262,7 @@ class CustomPipeline:
 
     def clean(self):
         """
-        Cleans the data by removing outliers, unnecessary features, and doing one-hot decoding. 
+        Cleans the data by removing unnecessary features, and doing one-hot decoding.
         It also stores the cleaned data if not instructed otherwise.
         """
 
@@ -291,10 +276,6 @@ class CustomPipeline:
 
         # update datatypes of features (categorical/numerical)
         self.update_datatypes()
-
-        # --------- Outlier Removal -----------
-
-        self.X_train, self.y_train = self.outlier_handler.handle_outliers(X_train=self.X_train, y_train=self.y_train)
 
         # --------- Feature Removal -----------
 
@@ -352,10 +333,6 @@ class CustomPipeline:
             self.test_values = geo_level_coordinate_mapper.transform(self.test_values)
             if self.use_validation_set:
                 self.X_val = geo_level_coordinate_mapper.transform(self.X_val)
-
-        # --------- Sampling ----------------------
-
-        self.X_train, self.y_train = self.resampler.apply_sampling(X_train=self.X_train, y_train=self.y_train)
 
         # ---------- Store Cleaned Dataset ----------
 

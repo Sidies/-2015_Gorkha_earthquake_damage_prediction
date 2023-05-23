@@ -95,11 +95,11 @@ def check_dataframe_for_imbalanced_features(df, threshold):
 
 
 def remove_rows_by_integer_index(df, integerList):
-    idx = np.ones(len(df.index), dtype=bool)
+    idx = pd.Series(np.ones(len(df.index), dtype=bool), index=df.index)
     for value in integerList:
         idx[value] = False
 
-    return df.iloc[idx]     
+    return df[idx]
 
 
 def impute_rows_by_integer_index(df, integerList):

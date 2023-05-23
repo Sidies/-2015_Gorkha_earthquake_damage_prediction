@@ -204,12 +204,12 @@ def find_zscore_outliers_asindizes(list, threshold=3):
     mask = np.abs(z_scores) > threshold
 
     # Create a Pandas series of indices with the boolean mask as the index values
-    outlier_indices = pd.Series(range(len(list)))[mask]
+    outlier_indices = pd.Series(list.index)[mask.reset_index(drop=True)]
 
     return outlier_indices
 
 
-def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold = 0.2, z_score_value=3):
+def get_outlier_rows_as_index(df, numerical_columns, categorical_columns, threshold=0.2, z_score_value=3):
     """
     Get the indices of outlier rows in a DataFrame.
 

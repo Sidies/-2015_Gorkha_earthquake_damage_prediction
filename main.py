@@ -1,5 +1,6 @@
 from src.pipelines.build_pipeline import CustomPipeline
-from src.pipelines import pipeline_utils
+from src.pipelines import pipeline_utils, pipeline_cleaning
+from src.features import sampling_strategies
 
 
 # disable warnings globally
@@ -132,8 +133,19 @@ def run_test_pipeline(
         use_validation_set=use_validation_set,
         apply_coordinate_mapping=False
         )
+
+    pipeline_utils.add_outlier_removal(
+        custom_pipeline=test_pipeline,
+        outlier_handling_func=pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3).handle_outliers
+    )
+
+    pipeline_utils.add_resampling(
+        custom_pipeline=test_pipeline,
+        resampling_func=sampling_strategies.RandomSampler().apply_sampling
+    )
+
     pipeline_utils.add_binary_encoder_and_minmaxscaler(custom_pipeline=test_pipeline)
-    
+
     # try out random sampling and see how it performs on the pipeline
     #pipeline_utils.add_randomsampling(custom_pipeline=test_pipeline)
     

@@ -1,4 +1,4 @@
-from src.features import build_features
+from src.features import build_features, sampling_strategies
 from src.pipelines.build_pipeline import CustomPipeline
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import MinMaxScaler
@@ -6,9 +6,12 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer, make_column_selector
 from sklearn.tree import DecisionTreeClassifier
+from imblearn import FunctionSampler
 from imblearn.ensemble import EasyEnsembleClassifier, BalancedBaggingClassifier, RUSBoostClassifier
 from category_encoders.binary import BinaryEncoder
 from lightgbm import LGBMClassifier
+
+from src.pipelines.pipeline_cleaning import OutlierRemover
 
 
 def add_best_steps(custom_pipeline: CustomPipeline):
@@ -25,7 +28,6 @@ def add_best_steps(custom_pipeline: CustomPipeline):
     steps: list of tuples
         Each tuple contains a step name and an instance of the transformer or estimator to be applied in the Pipeline.
     """
-    
     # additional feature selection by removing certain columns
     add_remove_feature_transformer(custom_pipeline, ['age'])
     
@@ -38,11 +40,21 @@ def add_best_steps(custom_pipeline: CustomPipeline):
     # add estimator
     #apply_knn_classifier(custom_pipeline, 9)
     apply_lgbm_classifier(custom_pipeline)
-    
-    
+
+
 def add_remove_feature_transformer(custom_pipeline: CustomPipeline, features_to_remove):
     feature_remover = build_features.RemoveFeatureTransformer(features_to_remove)
     custom_pipeline.add_new_step(feature_remover, 'feature_remover')
+
+
+def add_outlier_removal(custom_pipeline: CustomPipeline, outlier_handling_func):
+    outlier_remover = FunctionSampler(func=outlier_handling_func, validate=False)
+    custom_pipeline.add_new_step(outlier_remover, 'outlier_remover')
+
+
+def add_resampling(custom_pipeline: CustomPipeline, resampling_func):
+    resampler = FunctionSampler(func=resampling_func, validate=False)
+    custom_pipeline.add_new_step(resampler, 'resampler')
 
 
 def add_kbinsdiscretizer(custom_pipeline: CustomPipeline, number_of_bins: int):
