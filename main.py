@@ -16,7 +16,7 @@ def run_best_performing_pipeline(
         skip_feature_evaluation=True,
         print_evaluation=True,
         skip_storing_prediction=False,
-        use_validation_set=False
+        use_validation_set=True
 ):
     """
     Initializes and starts a sklearn pipeline with the steps from the 
@@ -134,7 +134,7 @@ def run_test_pipeline(
         apply_coordinate_mapping=False
         )
 
-    pipeline_utils.add_outlier_removal(
+    pipeline_utils.add_outlier_handling(
         custom_pipeline=test_pipeline,
         outlier_handling_func=pipeline_cleaning.OutlierRemover(cat_threshold=0.26, zscore_threshold=2.3).handle_outliers
     )
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--validation-set',
-        action='store_true',
+        action='store_false',
         help='pass if you want to split the data into train and validation set'
     )
     parser.add_argument(
