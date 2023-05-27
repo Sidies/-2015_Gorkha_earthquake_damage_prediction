@@ -4,8 +4,6 @@ import tqdm as tqdm
 import matplotlib.pyplot as plt
 import os
 
-from imblearn.over_sampling import RandomOverSampler
-from imblearn.under_sampling import RandomUnderSampler
 from imblearn.pipeline import Pipeline as ImbPipeline
 from copy import deepcopy
 from joblib import dump
@@ -53,6 +51,7 @@ class CustomPipeline:
             print_evaluation=True,
             skip_storing_prediction=False,
             use_validation_set=False,
+            use_cross_validation=True,
             use_kfold_shuffle=False,
             apply_coordinate_mapping=False,
             verbose=1
@@ -68,6 +67,7 @@ class CustomPipeline:
         :param skip_feature_evaluation: Whether to skip feature evaluation, defaults to True.
         :param print_evaluation: Whether to print the evaluation, defaults to True.
         :param skip_storing_prediction: Whether to skip storing of prediction, defaults to False.
+        :param use_cross_validation: Whether to use cross validation, defaults to True.
         :param use_kfold_shuffle: Whether to use k-fold shuffling in evaluation, defaults to False.
         :param apply_coordinate_mapping: Whether to apply coordinate mapping to geo_level_1_id
         :param verbose: Verbosity level of the output that describes how much should printed to terminal, defaults to 1.
@@ -82,12 +82,17 @@ class CustomPipeline:
         self.verbose = verbose
         self.use_validation_set = use_validation_set
         self.use_kfold_shuffle = use_kfold_shuffle
+        self.use_cross_validation = use_cross_validation
         self.apply_coordinate_mapping = apply_coordinate_mapping
 
         # load the data
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
+        
+    def get_pipeline(self):
+        """Returns the pipeline that is currently defined"""
+        return ImbPipeline(self.pipeline_steps)
 
     def add_new_step(self, transformer, name):
         """
@@ -113,6 +118,35 @@ class CustomPipeline:
                 self.pipeline_steps[i] = (name, transformer)  # replace the step
                 return
         self.pipeline_steps.insert(insertion_index, (name, transformer))
+        
+    def add_new_step_at_position(self, transformer, name, position:int):
+        """
+        Adds a new step to the pipeline at a specific position. If the name is already present, the corresponding
+        transformer will be replaced. If the position is out of bounds, the step will be appended to the end of the
+        pipeline.
+
+        Args:
+            transformer (transformer): the transformer to be added
+            name (string): name of the step
+            position (int): position in the pipeline
+        """
+        # initialize steps if empty
+        if len(self.pipeline_steps) == 0:
+            self.pipeline_steps = [(name, transformer)]
+            return
+
+        # replace if step already exists
+        for i, (step_name, _) in enumerate(self.pipeline_steps):
+            if step_name == name:
+                self.pipeline_steps[i] = (name, transformer)
+                return
+
+        # if name not found, insert or append step
+        if position >= len(self.pipeline_steps):
+            self.pipeline_steps.append((name, transformer))
+        else:
+            self.pipeline_steps.insert(position, (name, transformer))
+
 
     def remove_step(self, name):
         """Removes a specific step from the pipeline
@@ -120,7 +154,7 @@ class CustomPipeline:
         Args:
             name (string): the name of the step to remove
         """
-        self.pipeline_steps.pop(name, None)
+        self.pipeline_steps.pop(name)
 
     def change_estimator(self, new_estimator):
         """Changes the current estimator of the pipeline to a different one. 
@@ -154,6 +188,7 @@ class CustomPipeline:
             self.X_val[categorical_columns] = self.X_val[categorical_columns].astype('category')
             self.X_val[numerical_columns] = self.X_val[numerical_columns].astype(np.float64)
             self.y_val = self.y_val.astype('category')
+            
 
     def run(self):
         """
@@ -204,6 +239,9 @@ class CustomPipeline:
             train_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
             target_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
             test_values_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
+            
+            validation_values_path = Path()
+            validation_target_values_path = Path()
             if self.use_validation_set:
                 validation_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_val.csv'))
                 validation_target_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_val.csv'))
@@ -257,7 +295,8 @@ class CustomPipeline:
                     self.X_train,
                     self.y_train,
                     test_size=0.1,
-                    stratify=self.y_train['damage_grade']
+                    stratify=self.y_train['damage_grade'],
+                    random_state=42
                 )
 
     def clean(self):
@@ -359,28 +398,28 @@ class CustomPipeline:
 
         # ---------- Performance Metrics ----------
 
-        performance_metrics = {
-            'accuracy': 'accuracy',
-            'f1-score': 'f1_macro',
-            'mcc': make_scorer(matthews_corrcoef)
-        }
+        cv_performance_scores = {}
+        if self.use_cross_validation:
+            performance_metrics = {
+                'accuracy': 'accuracy',
+                'f1-score': 'f1_macro',
+                'mcc': make_scorer(matthews_corrcoef)
+            }
+            cv_performance_scores = cross_validate(
+                pipeline,
+                self.X_train,
+                self.y_train,
+                scoring=performance_metrics,
+                cv=StratifiedKFold(n_splits=5, shuffle=self.use_kfold_shuffle)
+            )        
+            # change prefix of metrics to be 'cv' instead of 'test'
+            for metric in list(cv_performance_scores.keys()):
+                if metric.startswith('test'):
+                    values = cv_performance_scores[metric]
+                    cv_performance_scores.pop(metric)
+                    cv_performance_scores[metric.replace('test', 'cv', 1)] = values
 
-        cv_performance_scores = cross_validate(
-            pipeline,
-            self.X_train,
-            self.y_train,
-            scoring=performance_metrics,
-            cv=StratifiedKFold(n_splits=5, shuffle=self.use_kfold_shuffle)
-        )
-
-        # change prefix of metrics to be 'cv' instead of 'test'
-        for metric in list(cv_performance_scores.keys()):
-            if metric.startswith('test'):
-                values = cv_performance_scores[metric]
-                cv_performance_scores.pop(metric)
-                cv_performance_scores[metric.replace('test', 'cv', 1)] = values
-
-        scores.update(cv_performance_scores)
+            scores.update(cv_performance_scores)
 
         validation_performance_scores = {}
         if self.use_validation_set:
