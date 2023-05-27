@@ -9,7 +9,7 @@ class OutlierHandler:
         return X_train, y_train
    
 class OutlierRemover(OutlierHandler): 
-    def __init__(self, cat_threshold=0.2, zscore_threshold=3):
+    def __init__(self, cat_threshold:float=0.2, zscore_threshold:float=3):
         self.cat_threshold = cat_threshold
         self.zscore_value=zscore_threshold
     
