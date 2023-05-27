@@ -1,5 +1,6 @@
 from src.features import build_features, sampling_strategies
 from src.pipelines.build_pipeline import CustomPipeline
+from src.pipelines import pipeline_cleaning
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import KNeighborsClassifier
@@ -28,6 +29,13 @@ def add_best_steps(custom_pipeline: CustomPipeline):
     steps: list of tuples
         Each tuple contains a step name and an instance of the transformer or estimator to be applied in the Pipeline.
     """
+    
+    outlier_remover = pipeline_cleaning.OutlierRemover(cat_threshold=0, zscore_threshold=4)
+    add_outlier_handling(
+            custom_pipeline=custom_pipeline,
+            outlier_handling_func=outlier_remover.handle_outliers
+        )
+    
     # additional feature selection by removing certain columns
     add_remove_feature_transformer(custom_pipeline, ['age'])
     
@@ -47,9 +55,9 @@ def add_remove_feature_transformer(custom_pipeline: CustomPipeline, features_to_
     custom_pipeline.add_new_step(feature_remover, 'feature_remover')
 
 
-def add_outlier_removal(custom_pipeline: CustomPipeline, outlier_handling_func):
-    outlier_remover = FunctionSampler(func=outlier_handling_func, validate=False)
-    custom_pipeline.add_new_step(outlier_remover, 'outlier_remover')
+def add_outlier_handling(custom_pipeline: CustomPipeline, outlier_handling_func):
+    outlier_handler = FunctionSampler(func=outlier_handling_func, validate=False)
+    custom_pipeline.add_new_step_at_position(outlier_handler, 'outlier_handler', 0)
 
 
 def add_resampling(custom_pipeline: CustomPipeline, resampling_func):
