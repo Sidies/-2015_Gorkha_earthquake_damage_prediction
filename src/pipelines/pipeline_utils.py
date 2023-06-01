@@ -130,7 +130,7 @@ def add_binary_encoder_and_minmaxscaler(custom_pipeline: CustomPipeline):
     custom_pipeline.add_new_step(trans, "encoder_and_scaler")
 
 
-def apply_knn_classifier(custom_pipeline: CustomPipeline, k: int,p: int, w):
+def apply_knn_classifier(custom_pipeline: CustomPipeline, k: int, w, p: int):
     customEstimator = KNeighborsClassifier(n_neighbors=k, weights=w, p=p)
     custom_pipeline.change_estimator(customEstimator)
 
