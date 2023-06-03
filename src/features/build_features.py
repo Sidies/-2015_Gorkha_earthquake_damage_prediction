@@ -468,7 +468,8 @@ class GeoLevelCoordinateMapperTransformer(BaseEstimator, TransformerMixin):
             return row
 
         X_new = X_new.apply(map_coordinates, axis=1)
-        X_new = X_new.drop(columns='geo_level_1_id')
+        X_new = X_new.astype(X.dtypes.to_dict())
+        # X_new = X_new.drop(columns='geo_level_1_id')
 
         return X_new
 
@@ -592,12 +593,17 @@ class CustomColumnTransformer(ColumnTransformer):
         return feature_names
 
     def transform(self, X):
-        indices = X.index.values.tolist()
-        original_columns = X.columns.values.tolist()
-        X_mat = super().transform(X)
-        new_cols = self.get_feature_names()
-        new_X = pd.DataFrame(X_mat, index=indices, columns=new_cols)
-        return new_X
+        X_new = pd.DataFrame(
+            super().transform(X),
+            index=X.index.values.tolist(),
+            columns=self.get_feature_names()
+        )
+
+        dtypes_original = X.dtypes.to_dict()
+        dtypes_new = {k: dtypes_original[k] for k in dtypes_original if k in X_new.columns}
+        X_new = X_new.astype(dtypes_new)
+
+        return X_new
 
     def fit_transform(self, X, y=None):
         super().fit_transform(X, y)

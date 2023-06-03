@@ -53,7 +53,7 @@ class CustomPipeline:
             use_validation_set=False,
             use_cross_validation=True,
             use_kfold_shuffle=False,
-            apply_coordinate_mapping=False,
+            apply_coordinate_mapping=True,
             verbose=1
     ):
         """
@@ -296,7 +296,7 @@ class CustomPipeline:
                     self.y_train,
                     test_size=0.1,
                     stratify=self.y_train['damage_grade'],
-                    random_state=42
+                    #random_state=42
                 )
 
     def clean(self):

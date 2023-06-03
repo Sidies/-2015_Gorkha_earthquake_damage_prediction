@@ -18,6 +18,7 @@ def run_best_performing_pipeline(
         skip_storing_prediction=False,
         use_validation_set=False,
         use_cross_validation=True,
+        apply_coordinate_mapping=True
 ):
     """
     Initializes and starts a sklearn pipeline with the steps from the 
@@ -42,7 +43,8 @@ def run_best_performing_pipeline(
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
-        use_cross_validation=use_cross_validation
+        use_cross_validation=use_cross_validation,
+        apply_coordinate_mapping=apply_coordinate_mapping
     )
     pipeline_utils.add_best_steps(pipeline)
     pipeline.run()
@@ -56,7 +58,8 @@ def run_lgbm_pipeline(
     print_evaluation=True,
     skip_storing_prediction=False,
     use_validation_set=False,
-    use_cross_validation=True
+    use_cross_validation=True,
+    apply_coordinate_mapping=True
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -70,7 +73,8 @@ def run_lgbm_pipeline(
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
-        use_cross_validation=use_cross_validation
+        use_cross_validation=use_cross_validation,
+        apply_coordinate_mapping=apply_coordinate_mapping
         )
     pipeline_utils.add_best_steps(custom_pipeline=lgbm_pipeline)
     pipeline_utils.apply_lgbm_classifier(lgbm_pipeline)
@@ -85,7 +89,8 @@ def run_multiple_pipelines(
     print_evaluation=True,
     skip_storing_prediction=False,
     use_validation_set=False,
-    use_cross_validation=True
+    use_cross_validation=True,
+    apply_coordinate_mapping=True
 ):
     """
     Initializes and starts multiple pipelines with different classifiers
@@ -99,7 +104,8 @@ def run_multiple_pipelines(
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
-        use_cross_validation=use_cross_validation
+        use_cross_validation=use_cross_validation,
+        apply_coordinate_mapping=apply_coordinate_mapping
     )
     n = 3
     
@@ -124,7 +130,8 @@ def run_test_pipeline(
     print_evaluation=True,
     skip_storing_prediction=False,
     use_validation_set=False,
-    use_cross_validation=True
+    use_cross_validation=True,
+    apply_coordinate_mapping=True
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -138,8 +145,8 @@ def run_test_pipeline(
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
-        apply_coordinate_mapping=False,
-        use_cross_validation=use_cross_validation
+        apply_coordinate_mapping=apply_coordinate_mapping,
+        use_cross_validation=use_cross_validation,
         )
 
     pipeline_utils.add_outlier_handling(
@@ -167,7 +174,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run data cleaning, preprocessing and model training')
     parser.add_argument(
         '--no-force-cleaning',
-        action='store_false',
+        action='store_true',
         help='pass if you want to stop forcing the cleaning step'
     )
     parser.add_argument(
@@ -201,6 +208,11 @@ if __name__ == '__main__':
         help='pass if you want to skip storing the prediction'
     )
     parser.add_argument(
+        '--no-coordinate-mapping',
+        action='store_true',
+        help='pass if you want to apply the geo data coordinate mapping'
+    )
+    parser.add_argument(
         "--pipeline", 
         choices=["best", "lgbm", "test", "multiple"], 
         default="best",
@@ -210,35 +222,38 @@ if __name__ == '__main__':
     
     if args.pipeline == "best":
         run_best_performing_pipeline(
-            force_cleaning=args.no_force_cleaning,
+            force_cleaning=not args.no_force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction,
             use_validation_set=args.validation_set,
-            use_cross_validation=not args.no_cross_validation
+            use_cross_validation=not args.no_cross_validation,
+            apply_coordinate_mapping=not args.no_coordinate_mapping
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
-            force_cleaning=args.no_force_cleaning,
+            force_cleaning=not args.no_force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction,
             use_validation_set=args.validation_set,
-            use_cross_validation=not args.no_cross_validation
+            use_cross_validation=not args.no_cross_validation,
+            apply_coordinate_mapping=not args.no_coordinate_mapping
         )
     elif args.pipeline == "test":
         run_test_pipeline()
     elif args.pipeline == "multiple":
         run_multiple_pipelines(
-            force_cleaning=args.no_force_cleaning,
+            force_cleaning=not args.no_force_cleaning,
             skip_evaluation=args.skip_evaluation,
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction,
             use_validation_set=args.validation_set,
-            use_cross_validation=not args.no_cross_validation
+            use_cross_validation=not args.no_cross_validation,
+            apply_coordinate_mapping=not args.no_coordinate_mapping
         )
     else:
         print("Invalid pipeline specified.")

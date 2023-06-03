@@ -81,7 +81,7 @@ def add_kbinsdiscretizer(custom_pipeline: CustomPipeline, number_of_bins: int):
                 "bins",
                 discretizer,
                 make_column_selector(
-                    pattern="(?!geo-level-1.*)^.*",  # ignores geo-level-1 features
+                    pattern="(?!geo_level_1.*)^.*",  # ignores geo-level-1 features
                     dtype_exclude=["category", "object"],
                 ),
             ),
@@ -89,7 +89,7 @@ def add_kbinsdiscretizer(custom_pipeline: CustomPipeline, number_of_bins: int):
                 "dummy_numerical",
                 build_features.DummyTransformer(),
                 make_column_selector(
-                    pattern="geo-level-1.*",  # apply to geo-level-1 features only
+                    pattern="geo_level_1.*",  # apply to geo-level-1 features only
                     dtype_exclude=["category", "object"],
                 ),
             ),  # necessary to keep feature names
