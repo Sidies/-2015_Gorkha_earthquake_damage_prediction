@@ -352,26 +352,62 @@ class GeoLevelCoordinateMapperTransformer(BaseEstimator, TransformerMixin):
         """
         X_new = X.copy()
 
+        # our mapping
+        #district_mapping = {
+        #    0: 'Syangja',
+        #    1: 'Kaski',
+        #    2: 'Baglung',
+        #    3: 'Bhaktapur',
+        #    4: 'Ramechhap',
+        #    5: 'Parbat',
+        #    6: 'Kavrepalanchok',
+        #    7: 'Nuwakot',
+        #    8: 'Gorkha',
+        #    9: 'Chitwan',
+        #    10: 'Dhading',
+        #    11: 'Lalitpur',
+        #    12: 'Khotang',
+        #    13: 'Okhaldhunga',
+        #    14: 'Gulmi',
+        #    15: 'Bhojpur',
+        #    16: 'Solukhumbu',
+        #    17: 'Sindhupalchok',
+        #    18: 'Rasuwa',
+        #    19: 'Myagdi',
+        #    20: 'Sindhuli',
+        #    21: 'Dolakha',
+        #    22: 'Tanahu',
+        #    23: 'Dhankuta',
+        #    24: 'Sankhuwasabha',
+        #    25: 'Lamjung',
+        #    26: 'Makwanpur',
+        #    27: 'Kathmandu',
+        #    28: 'Nawalparasi',
+        #    29: 'Arghakhanchi',
+        #    30: 'Palpa'
+        #}
+
+        # mapping of group greyjoy
         district_mapping = {
-            0: 'Syangja',
+            0: 'Chitwan',
             1: 'Kaski',
             2: 'Baglung',
             3: 'Bhaktapur',
             4: 'Ramechhap',
-            5: 'Parbat',
+            5: 'Palpa',
             6: 'Kavrepalanchok',
             7: 'Nuwakot',
             8: 'Gorkha',
-            9: 'Chitwan',
+            9: 'Syangja',
             10: 'Dhading',
             11: 'Lalitpur',
-            12: 'Khotang',
+            12: 'Rasuwa',
             13: 'Okhaldhunga',
             14: 'Gulmi',
             15: 'Bhojpur',
             16: 'Solukhumbu',
             17: 'Sindhupalchok',
-            18: 'Rasuwa',
+            18: 'Khotang',
             19: 'Myagdi',
             20: 'Sindhuli',
             21: 'Dolakha',
@@ -383,7 +419,7 @@ class GeoLevelCoordinateMapperTransformer(BaseEstimator, TransformerMixin):
             27: 'Kathmandu',
             28: 'Nawalparasi',
             29: 'Arghakhanchi',
-            30: 'Palpa'
+            30: 'Parbat'
         }
 
         X_new['geo_level_1_id'] = X['geo_level_1_id'].replace(district_mapping)

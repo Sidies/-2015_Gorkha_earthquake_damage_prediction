@@ -34,12 +34,11 @@ def add_best_steps(custom_pipeline: CustomPipeline):
         Each tuple contains a step name and an instance of the transformer or estimator to be applied in the Pipeline.
     """
 
-    outlier_remover = pipeline_cleaning.OutlierRemover(
-        cat_threshold=0, zscore_threshold=4
-    )
     add_outlier_handling(
         custom_pipeline=custom_pipeline,
-        outlier_handling_func=outlier_remover.handle_outliers,
+        outlier_handling_func=pipeline_cleaning.OutlierRemover(
+            cat_threshold=0, zscore_threshold=4
+        ).handle_outliers,
     )
 
     # additional feature selection by removing certain columns

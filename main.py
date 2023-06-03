@@ -16,7 +16,8 @@ def run_best_performing_pipeline(
         skip_feature_evaluation=True,
         print_evaluation=True,
         skip_storing_prediction=False,
-        use_validation_set=True
+        use_validation_set=False,
+        use_cross_validation=True,
 ):
     """
     Initializes and starts a sklearn pipeline with the steps from the 
@@ -40,7 +41,8 @@ def run_best_performing_pipeline(
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
-        use_validation_set=use_validation_set
+        use_validation_set=use_validation_set,
+        use_cross_validation=use_cross_validation
     )
     pipeline_utils.add_best_steps(pipeline)
     pipeline.run()
@@ -54,6 +56,7 @@ def run_lgbm_pipeline(
     print_evaluation=True,
     skip_storing_prediction=False,
     use_validation_set=False,
+    use_cross_validation=True
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -66,7 +69,8 @@ def run_lgbm_pipeline(
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
-        use_validation_set=use_validation_set
+        use_validation_set=use_validation_set,
+        use_cross_validation=use_cross_validation
         )
     pipeline_utils.add_best_steps(custom_pipeline=lgbm_pipeline)
     pipeline_utils.apply_lgbm_classifier(lgbm_pipeline)
@@ -80,7 +84,8 @@ def run_multiple_pipelines(
     skip_feature_evaluation=True,
     print_evaluation=True,
     skip_storing_prediction=False,
-    use_validation_set=False
+    use_validation_set=False,
+    use_cross_validation=True
 ):
     """
     Initializes and starts multiple pipelines with different classifiers
@@ -93,7 +98,8 @@ def run_multiple_pipelines(
         skip_feature_evaluation=skip_feature_evaluation,
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
-        use_validation_set=use_validation_set
+        use_validation_set=use_validation_set,
+        use_cross_validation=use_cross_validation
     )
     n = 3
     
@@ -117,7 +123,8 @@ def run_test_pipeline(
     skip_feature_evaluation=True,
     print_evaluation=True,
     skip_storing_prediction=False,
-    use_validation_set=False
+    use_validation_set=False,
+    use_cross_validation=True
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -131,7 +138,8 @@ def run_test_pipeline(
         print_evaluation=print_evaluation,
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
-        apply_coordinate_mapping=False
+        apply_coordinate_mapping=False,
+        use_cross_validation=use_cross_validation
         )
 
     pipeline_utils.add_outlier_handling(
@@ -164,8 +172,13 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--validation-set',
-        action='store_false',
+        action='store_true',
         help='pass if you want to split the data into train and validation set'
+    )
+    parser.add_argument(
+        '--no-cross-validation',
+        action='store_true',
+        help='pass if you want to skip cross validation in the evaluation'
     )
     parser.add_argument(
         '--skip-evaluation',
@@ -202,7 +215,8 @@ if __name__ == '__main__':
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction,
-            use_validation_set=args.validation_set
+            use_validation_set=args.validation_set,
+            use_cross_validation=not args.no_cross_validation
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
@@ -211,7 +225,8 @@ if __name__ == '__main__':
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction,
-            use_validation_set=args.validation_set
+            use_validation_set=args.validation_set,
+            use_cross_validation=not args.no_cross_validation
         )
     elif args.pipeline == "test":
         run_test_pipeline()
@@ -222,7 +237,8 @@ if __name__ == '__main__':
             skip_error_evaluation=not args.error_evaluation,
             skip_feature_evaluation=not args.feature_importance,
             skip_storing_prediction=args.skip_storing_prediction,
-            use_validation_set=args.validation_set
+            use_validation_set=args.validation_set,
+            use_cross_validation=not args.no_cross_validation
         )
     else:
         print("Invalid pipeline specified.")
