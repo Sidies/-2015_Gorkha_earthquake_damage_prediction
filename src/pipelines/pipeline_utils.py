@@ -51,8 +51,7 @@ def add_best_steps(custom_pipeline: CustomPipeline):
     add_binary_encoder_and_minmaxscaler(custom_pipeline)
 
     # add estimator
-    # apply_knn_classifier(custom_pipeline, 9)
-    apply_lgbm_classifier(custom_pipeline)
+    apply_tuned_lgbm_classifier(custom_pipeline)
 
 
 def add_remove_feature_transformer(custom_pipeline: CustomPipeline, features_to_remove):
