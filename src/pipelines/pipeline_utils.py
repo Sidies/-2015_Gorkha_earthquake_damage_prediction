@@ -134,13 +134,61 @@ def apply_knn_classifier(custom_pipeline: CustomPipeline, k: int, w, p: int):
     custom_pipeline.change_estimator(customEstimator)
 
 
+def apply_default_knn_classifier(custom_pipeline: CustomPipeline):
+    customEstimator = KNeighborsClassifier()
+    custom_pipeline.change_estimator(customEstimator)
+
+
+def apply_tuned_knn_classifier(custom_pipeline: CustomPipeline):
+    customEstimator = KNeighborsClassifier(
+        n_neighbors=9,
+        p=1,
+        weights='uniform'
+    )
+    custom_pipeline.change_estimator(customEstimator)
+
+
 def apply_lgbm_classifier(custom_pipeline: CustomPipeline):
     customEstimator = LGBMClassifier()
     custom_pipeline.change_estimator(new_estimator=customEstimator)
 
 
+def apply_partly_tuned_lgbm_classifier(custom_pipeline: CustomPipeline):
+    customEstimator = LGBMClassifier(
+        learning_rate=0.3,
+        max_depth=-1,
+        n_estimators=400
+    )
+    custom_pipeline.change_estimator(new_estimator=customEstimator)
+
+
+def apply_tuned_lgbm_classifier(custom_pipeline: CustomPipeline):
+    customEstimator = LGBMClassifier(
+        learning_rate=0.3,
+        max_depth=-1,
+        n_estimators=400,
+        metric='multi_error',
+        lambda_l1=0.5,
+        bagging_fraction=0.7,
+        num_leaves=50
+    )
+    custom_pipeline.change_estimator(new_estimator=customEstimator)
+
+
 def apply_randomforest_classifier(custom_pipeline: CustomPipeline):
     customEstimator = RandomForestClassifier()
+    custom_pipeline.change_estimator(new_estimator=customEstimator)
+
+
+def apply_tuned_randomforest_classifier(custom_pipeline: CustomPipeline):
+    customEstimator = RandomForestClassifier(
+        bootstrap=False,
+        max_depth=25,
+        max_features='auto',
+        min_samples_leaf=4,
+        min_samples_split=10,
+        n_estimators=500
+    )
     custom_pipeline.change_estimator(new_estimator=customEstimator)
 
 
