@@ -1,0 +1,7 @@
+model,mcc,runtime,tuned
+knn,0.495,242.6,tuned
+knn,0.483,41.2,default
+lgbm,0.515,23.19,tuned
+lgbm,0.456,12.96,default
+forest,0.515,258.14,tuned
+forest,0.487,59.13,default
