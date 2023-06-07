@@ -221,7 +221,7 @@ if __name__ == '__main__':
         help='pass if you want to skip the geo data coordinate mapping'
     )
     parser.add_argument(
-        '--tuning',
+        '--no-tuning',
         action='store_true',
         help='pass if you want to skip hyperparameter tuning'
     )
@@ -243,7 +243,7 @@ if __name__ == '__main__':
             use_validation_set=args.validation_set,
             use_cross_validation=not args.no_cross_validation,
             apply_coordinate_mapping=not args.no_coordinate_mapping,
-            use_tuning=args.tuning
+            use_tuning=not args.no_tuning
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
@@ -255,7 +255,7 @@ if __name__ == '__main__':
             use_validation_set=args.validation_set,
             use_cross_validation=not args.no_cross_validation,
             apply_coordinate_mapping=not args.no_coordinate_mapping,
-            use_tuning=args.tuning
+            use_tuning=not args.no_tuning
         )
     elif args.pipeline == "test":
         run_test_pipeline()
@@ -269,7 +269,7 @@ if __name__ == '__main__':
             use_validation_set=args.validation_set,
             use_cross_validation=not args.no_cross_validation,
             apply_coordinate_mapping=not args.no_coordinate_mapping,
-            use_tuning=args.tuning
+            use_tuning=not args.no_tuning
         )
     else:
         print("Invalid pipeline specified.")
