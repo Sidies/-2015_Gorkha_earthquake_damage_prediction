@@ -6,6 +6,8 @@ from src.features import sampling_strategies
 # disable warnings globally
 import warnings
 warnings.filterwarnings("ignore")
+import os
+os.environ['PYTHONWARNINGS']='ignore'
 
 
 def run_best_performing_pipeline(
