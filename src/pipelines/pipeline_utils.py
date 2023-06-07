@@ -1,11 +1,14 @@
 from src.features import build_features, sampling_strategies
 from src.pipelines.build_pipeline import CustomPipeline
 from src.pipelines import pipeline_cleaning
+from skopt import BayesSearchCV
+from skopt.space import Categorical, Integer, Real
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer, make_column_selector
+from sklearn.metrics import make_scorer, matthews_corrcoef
 from sklearn.tree import DecisionTreeClassifier
 from imblearn import FunctionSampler
 from imblearn.ensemble import (
@@ -52,6 +55,9 @@ def add_best_steps(custom_pipeline: CustomPipeline):
 
     # add estimator
     apply_tuned_lgbm_classifier(custom_pipeline)
+
+    # add tuning
+    add_lgbm_classifier_tuning(custom_pipeline)
 
 
 def add_remove_feature_transformer(custom_pipeline: CustomPipeline, features_to_remove):
@@ -172,6 +178,29 @@ def apply_tuned_lgbm_classifier(custom_pipeline: CustomPipeline):
         num_leaves=50
     )
     custom_pipeline.change_estimator(new_estimator=customEstimator)
+
+
+def add_lgbm_classifier_tuning(custom_pipeline: CustomPipeline):
+    def search(estimator):
+        return BayesSearchCV(
+            estimator=estimator,
+            search_spaces={
+                'estimator__n_estimators': Integer(25, 500),
+                'estimator__learning_rate': Real(0.1, 0.5),
+                'estimator__max_depth': Integer(3, 50),
+                # 'estimator__metric': Categorical(['multi_logloss', 'multi_error', 'multi_mcc']),
+                # 'estimator__lambda_l1': Real(0.1, 0.5),
+                # 'estimator__bagging_fraction': Real(0.5, 0.9),
+                # 'estimator__num_leaves': Integer(31, 500)
+            },
+            scoring=make_scorer(matthews_corrcoef),
+            cv=2,
+            n_iter=400,
+            n_points=8,
+            n_jobs=-1,
+            verbose=1
+        )
+    custom_pipeline.set_search(search)
 
 
 def apply_randomforest_classifier(custom_pipeline: CustomPipeline):

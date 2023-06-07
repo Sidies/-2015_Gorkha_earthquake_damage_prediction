@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import tqdm as tqdm
 import matplotlib.pyplot as plt
 import os
 
@@ -12,13 +11,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, make_scorer, \
     matthews_corrcoef
 from sklearn.model_selection import cross_validate, train_test_split
-from sklearn.pipeline import Pipeline
-from collections import Counter
 from src.data import configuration as config
-from src.features import handle_outliers
 from src.features import build_features
-from src.pipelines import pipeline_cleaning
-from src.features import sampling_strategies
 
 
 class CustomPipeline:
@@ -40,6 +34,7 @@ class CustomPipeline:
     test_values_building_id = []
     evaluation_scoring = {}
     pipeline_steps = []
+    search = None
 
     def __init__(
             self,
@@ -54,6 +49,7 @@ class CustomPipeline:
             use_cross_validation=True,
             use_kfold_shuffle=False,
             apply_coordinate_mapping=True,
+            use_tuning=True,
             verbose=1
     ):
         """
@@ -70,6 +66,7 @@ class CustomPipeline:
         :param use_cross_validation: Whether to use cross validation, defaults to True.
         :param use_kfold_shuffle: Whether to use k-fold shuffling in evaluation, defaults to False.
         :param apply_coordinate_mapping: Whether to apply coordinate mapping to geo_level_1_id
+        :param use_tuning: Whether to apply hyperparameter tuning, defaults to True.
         :param verbose: Verbosity level of the output that describes how much should printed to terminal, defaults to 1.
         """
         self.force_cleaning = force_cleaning
@@ -84,12 +81,13 @@ class CustomPipeline:
         self.use_kfold_shuffle = use_kfold_shuffle
         self.use_cross_validation = use_cross_validation
         self.apply_coordinate_mapping = apply_coordinate_mapping
+        self.use_tuning = use_tuning
 
         # load the data
         if self.verbose >= 1:
             print('loading data')
         self.load_and_prep_data()
-        
+
     def get_pipeline(self):
         """Returns the pipeline that is currently defined"""
         return ImbPipeline(self.pipeline_steps)
@@ -118,8 +116,8 @@ class CustomPipeline:
                 self.pipeline_steps[i] = (name, transformer)  # replace the step
                 return
         self.pipeline_steps.insert(insertion_index, (name, transformer))
-        
-    def add_new_step_at_position(self, transformer, name, position:int):
+
+    def add_new_step_at_position(self, transformer, name, position: int):
         """
         Adds a new step to the pipeline at a specific position. If the name is already present, the corresponding
         transformer will be replaced. If the position is out of bounds, the step will be appended to the end of the
@@ -147,7 +145,6 @@ class CustomPipeline:
         else:
             self.pipeline_steps.insert(position, (name, transformer))
 
-
     def remove_step(self, name):
         """Removes a specific step from the pipeline
 
@@ -173,6 +170,17 @@ class CustomPipeline:
             # If no 'estimator' step was found, add one
             self.pipeline_steps.append(('estimator', new_estimator))
 
+    def set_search(self, search):
+        """
+        Set the callback method that returns a corresponding search object used
+        for hyperparameter tuning.
+
+        Args:
+             search: a callback method that takes an estimator as input and
+                     returns an initialized search object
+        """
+        self.search = search
+
     def update_datatypes(self):
         categorical_columns = list(set(self.X_train.columns) - set(config.numerical_columns))
         numerical_columns = list(set(self.X_train.columns) - set(config.categorical_columns))
@@ -188,7 +196,6 @@ class CustomPipeline:
             self.X_val[categorical_columns] = self.X_val[categorical_columns].astype('category')
             self.X_val[numerical_columns] = self.X_val[numerical_columns].astype(np.float64)
             self.y_val = self.y_val.astype('category')
-            
 
     def run(self):
         """
@@ -205,7 +212,8 @@ class CustomPipeline:
 
         if self.verbose >= 1:
             print('running pipeline')
-        self.pipeline.fit(self.X_train, self.y_train)
+
+        self.train()
 
         if not self.skip_evaluation:
             if self.verbose >= 1:
@@ -239,7 +247,7 @@ class CustomPipeline:
             train_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_train.csv'))
             target_values_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/y_train.csv'))
             test_values_building_id_path = Path(os.path.join(config.ROOT_DIR, 'data/interim/X_test_building_id.csv'))
-            
+
             validation_values_path = Path()
             validation_target_values_path = Path()
             if self.use_validation_set:
@@ -296,7 +304,7 @@ class CustomPipeline:
                     self.y_train,
                     test_size=0.1,
                     stratify=self.y_train['damage_grade'],
-                    #random_state=42
+                    # random_state=42
                 )
 
     def clean(self):
@@ -386,6 +394,19 @@ class CustomPipeline:
                 self.X_val.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/X_val.csv'), index=False)
                 self.y_val.to_csv(os.path.join(config.ROOT_DIR, 'data/interim/y_val.csv'), index=False)
 
+    def train(self):
+        """
+        Trains the pipeline. Depending on the parameters, hyperparameter tuning is applied.
+        """
+        if self.use_tuning:
+            if self.search:
+                search = self.search(self.pipeline)
+                search.fit(self.X_train, self.y_train)
+                self.pipeline = search.best_estimator_
+                return
+            print('No search defined. Running without tuning.')
+        self.pipeline.fit(self.X_train, self.y_train)
+
     def evaluate(self):
         """
         Evaluates the pipeline using performance metrics, error evaluation and feature evaluation. 
@@ -411,7 +432,7 @@ class CustomPipeline:
                 self.y_train,
                 scoring=performance_metrics,
                 cv=StratifiedKFold(n_splits=5, shuffle=self.use_kfold_shuffle)
-            )        
+            )
             # change prefix of metrics to be 'cv' instead of 'test'
             for metric in list(cv_performance_scores.keys()):
                 if metric.startswith('test'):

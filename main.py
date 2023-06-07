@@ -18,7 +18,8 @@ def run_best_performing_pipeline(
         skip_storing_prediction=False,
         use_validation_set=False,
         use_cross_validation=True,
-        apply_coordinate_mapping=True
+        apply_coordinate_mapping=True,
+        use_tuning=True
 ):
     """
     Initializes and starts a sklearn pipeline with the steps from the 
@@ -44,7 +45,8 @@ def run_best_performing_pipeline(
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
         use_cross_validation=use_cross_validation,
-        apply_coordinate_mapping=apply_coordinate_mapping
+        apply_coordinate_mapping=apply_coordinate_mapping,
+        use_tuning=use_tuning
     )
     pipeline_utils.add_best_steps(pipeline)
     pipeline.run()
@@ -59,7 +61,8 @@ def run_lgbm_pipeline(
     skip_storing_prediction=False,
     use_validation_set=False,
     use_cross_validation=True,
-    apply_coordinate_mapping=True
+    apply_coordinate_mapping=True,
+    use_tuning=True
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -74,8 +77,9 @@ def run_lgbm_pipeline(
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
         use_cross_validation=use_cross_validation,
-        apply_coordinate_mapping=apply_coordinate_mapping
-        )
+        apply_coordinate_mapping=apply_coordinate_mapping,
+        use_tuning=use_tuning
+    )
     pipeline_utils.add_best_steps(custom_pipeline=lgbm_pipeline)
     pipeline_utils.apply_lgbm_classifier(lgbm_pipeline)
     lgbm_pipeline.run()
@@ -90,7 +94,8 @@ def run_multiple_pipelines(
     skip_storing_prediction=False,
     use_validation_set=False,
     use_cross_validation=True,
-    apply_coordinate_mapping=True
+    apply_coordinate_mapping=True,
+    use_tuning=True
 ):
     """
     Initializes and starts multiple pipelines with different classifiers
@@ -105,7 +110,8 @@ def run_multiple_pipelines(
         skip_storing_prediction=skip_storing_prediction,
         use_validation_set=use_validation_set,
         use_cross_validation=use_cross_validation,
-        apply_coordinate_mapping=apply_coordinate_mapping
+        apply_coordinate_mapping=apply_coordinate_mapping,
+        use_tuning=use_tuning
     )
     n = 3
     
@@ -131,7 +137,8 @@ def run_test_pipeline(
     skip_storing_prediction=False,
     use_validation_set=False,
     use_cross_validation=True,
-    apply_coordinate_mapping=True
+    apply_coordinate_mapping=True,
+    use_tuning=True
 ):
     """
     Initializes and starts a pipeline with the lgbm classifier
@@ -147,7 +154,8 @@ def run_test_pipeline(
         use_validation_set=use_validation_set,
         apply_coordinate_mapping=apply_coordinate_mapping,
         use_cross_validation=use_cross_validation,
-        )
+        use_tuning=use_tuning
+    )
 
     pipeline_utils.add_outlier_handling(
         custom_pipeline=test_pipeline,
@@ -210,7 +218,12 @@ if __name__ == '__main__':
     parser.add_argument(
         '--no-coordinate-mapping',
         action='store_true',
-        help='pass if you want to apply the geo data coordinate mapping'
+        help='pass if you want to skip the geo data coordinate mapping'
+    )
+    parser.add_argument(
+        '--tuning',
+        action='store_true',
+        help='pass if you want to skip hyperparameter tuning'
     )
     parser.add_argument(
         "--pipeline", 
@@ -229,7 +242,8 @@ if __name__ == '__main__':
             skip_storing_prediction=args.skip_storing_prediction,
             use_validation_set=args.validation_set,
             use_cross_validation=not args.no_cross_validation,
-            apply_coordinate_mapping=not args.no_coordinate_mapping
+            apply_coordinate_mapping=not args.no_coordinate_mapping,
+            use_tuning=args.tuning
         )
     elif args.pipeline == "lgbm":
         run_lgbm_pipeline(
@@ -240,7 +254,8 @@ if __name__ == '__main__':
             skip_storing_prediction=args.skip_storing_prediction,
             use_validation_set=args.validation_set,
             use_cross_validation=not args.no_cross_validation,
-            apply_coordinate_mapping=not args.no_coordinate_mapping
+            apply_coordinate_mapping=not args.no_coordinate_mapping,
+            use_tuning=args.tuning
         )
     elif args.pipeline == "test":
         run_test_pipeline()
@@ -253,7 +268,8 @@ if __name__ == '__main__':
             skip_storing_prediction=args.skip_storing_prediction,
             use_validation_set=args.validation_set,
             use_cross_validation=not args.no_cross_validation,
-            apply_coordinate_mapping=not args.no_coordinate_mapping
+            apply_coordinate_mapping=not args.no_coordinate_mapping,
+            use_tuning=args.tuning
         )
     else:
         print("Invalid pipeline specified.")
