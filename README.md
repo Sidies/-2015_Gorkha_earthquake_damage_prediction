@@ -1,7 +1,13 @@
-phase-1
+Earthquake Damage Prediction: Data Analysis and Prediction Model
 ==============================
+Welcome to our project repository! We are a group of dedicated students from the Karlsruhe Institute of Technology, utilizing our data science skills to tackle real-world, high-impact problems as part of our Data Science Lab course at KIT. This project aims to explore, analyze, and predict the degree of damage to buildings resulting from the 2015 Gorkha earthquake in Nepal.
 
-Code, documentation and reports created for phase 1 of the data science lab 2023 at the Karlsruhe Institute of Technology.
+The 2015 Gorkha earthquake was a catastrophic event that led to extensive loss and damage. Through this project, our goal is to understand the varying degrees of damage across diverse buildings and locations and predict the potential severity of damage inflicted by similar future occurrences.
+
+We have built a robust data pipeline utilizing Python scripts and Jupyter Notebooks for an end-to-end process that includes data cleaning, analysis, and model development. This pipeline allows us to efficiently process and analyze our extensive dataset, enabling us to build accurate and reliable prediction models.
+
+The repository you are about to delve into contains all the code, resources, and documentation produced and utilized throughout this project
+
 
 Installation
 ------------
